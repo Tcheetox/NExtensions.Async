@@ -8,7 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{027CE3EB-466
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NExtensions.Async", "src\NExtensions.Async\NExtensions.Async.csproj", "{B7B563DF-2C78-4705-93F2-196ADFE648C2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NExtensions.Benchmark", "tests\NExtensions.Benchmark\NExtensions.Benchmark.csproj", "{E1E8FCB3-A099-40E8-9A47-A09A19FB8AA5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NExtensions.Benchmarking", "tests\NExtensions.Benchmarking\NExtensions.Benchmarking.csproj", "{E1E8FCB3-A099-40E8-9A47-A09A19FB8AA5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
