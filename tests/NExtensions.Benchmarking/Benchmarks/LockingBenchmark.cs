@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using BenchmarkDotNet.Attributes;
 
 // ReSharper disable MemberCanBeProtected.Global
@@ -6,13 +7,13 @@ namespace NExtensions.Benchmarking.Benchmarks;
 
 public abstract class LockingBenchmark
 {
-	protected ConcurrentBag<Payload> Bag = null!;
+	protected ConcurrentBag<Payload> Bag = [];
 
 	[Params(100, 10_000)]
-	public virtual int Count { get; set; } = 10;
+	public virtual int Count { get; set; } = 10_000;
 
 	[Params("yield", "delay", "sync")]
-	public virtual string Wait { get; set; } = "yield";
+	public virtual string Wait { get; set; } = "delay";
 
 	[IterationSetup]
 	public void IterationSetup()
@@ -26,6 +27,14 @@ public abstract class LockingBenchmark
 			throw new InvalidBenchmarkException($"Invalid benchmark count, expected {Bag.Count} to be {Count}");
 	}
 
+	protected static bool TryTakeLast<T>(IEnumerable<T> enumerable, [NotNullWhen(true)] out T? item) where T : class
+	{
+		item = null;
+		foreach (var entry in enumerable)
+			item = entry;
+		return item is not null;
+	}
+	
 	protected async Task WaitMeAsync()
 	{
 		switch (Wait)

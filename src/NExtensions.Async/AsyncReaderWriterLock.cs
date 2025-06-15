@@ -1,14 +1,13 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Diagnostics;
 using System.Threading.Tasks.Sources;
 
 namespace NExtensions.Async;
 
 public sealed class AsyncReaderWriterLock
 {
-	private readonly ConcurrentQueue<Waiter> _readerQueue = new();
+	private readonly Queue<Waiter> _readerQueue = new();
+	private readonly Queue<Waiter> _writerQueue = new();
 	private readonly object _sync = new();
-	private readonly WaiterPool _waiterPool = new();
-	private readonly ConcurrentQueue<Waiter> _writerQueue = new();
 	private int _readerCount;
 	private bool _writerActive;
 
@@ -16,14 +15,13 @@ public sealed class AsyncReaderWriterLock
 	{
 		lock (_sync)
 		{
-			if (!_writerActive && _writerQueue.IsEmpty)
+			if (!_writerActive && _writerQueue.Count == 0)
 			{
 				_readerCount++;
 				return new ValueTask<Releaser>(new Releaser(this, false));
 			}
 
-			var waiter = _waiterPool.Rent();
-			waiter.Initialize(this, false);
+			var waiter = new Waiter(this, isWriter: false);
 			_readerQueue.Enqueue(waiter);
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
@@ -39,8 +37,7 @@ public sealed class AsyncReaderWriterLock
 				return new ValueTask<Releaser>(new Releaser(this, true));
 			}
 
-			var waiter = _waiterPool.Rent();
-			waiter.Initialize(this, true);
+			var waiter = new Waiter(this, isWriter: true);
 			_writerQueue.Enqueue(waiter);
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
@@ -49,6 +46,8 @@ public sealed class AsyncReaderWriterLock
 	private void Release(bool isWriter)
 	{
 		Waiter? toWake = null;
+		List<Waiter>? toWakeReaders = null;
+
 		lock (_sync)
 		{
 			if (isWriter)
@@ -60,21 +59,31 @@ public sealed class AsyncReaderWriterLock
 				_readerCount--;
 			}
 
-			if (!_writerActive && _readerCount == 0 && _writerQueue.TryDequeue(out toWake))
+			if (_writerActive || _readerCount > 0)
+				return;
+			
+			if (_writerQueue.TryDequeue(out toWake))
 			{
 				_writerActive = true;
 			}
-			else if (!_writerActive && _writerQueue.IsEmpty)
+			else if (_readerQueue.Count > 0)
 			{
-				while (_readerQueue.TryDequeue(out var reader))
+				toWakeReaders = new List<Waiter>(_readerQueue.Count);
+				while (_readerQueue.TryDequeue(out var r))
 				{
 					_readerCount++;
-					reader.SetResult(new Releaser(this, false));
+					toWakeReaders.Add(r);
 				}
 			}
 		}
 
-		toWake?.SetResult(new Releaser(this, true));
+		Debug.Assert(toWake == null || toWakeReaders == null, "Cannot wake both writer and readers simultaneously.");
+		
+		toWake?.SetResult(new Releaser(this, isWriter: true));
+
+		if (toWakeReaders == null) return;
+		foreach (var r in toWakeReaders)
+			r.SetResult(new Releaser(this, isWriter: false));
 	}
 
 	public readonly struct Releaser : IDisposable
@@ -94,11 +103,17 @@ public sealed class AsyncReaderWriterLock
 		}
 	}
 
-	private class Waiter : IValueTaskSource<Releaser>
+	private sealed class Waiter : IValueTaskSource<Releaser>
 	{
-		private ManualResetValueTaskSourceCore<Releaser> _core; // struct
-		private bool _isWriter;
-		private AsyncReaderWriterLock _lock = null!;
+		private ManualResetValueTaskSourceCore<Releaser> _core = new() { RunContinuationsAsynchronously = true };
+		private readonly AsyncReaderWriterLock _lock;
+		private readonly bool _isWriter;
+
+		public Waiter(AsyncReaderWriterLock rwLock, bool isWriter)
+		{
+			_lock = rwLock;
+			_isWriter = isWriter;
+		}
 
 		public short Version => _core.Version;
 
@@ -109,7 +124,9 @@ public sealed class AsyncReaderWriterLock
 
 		public Releaser GetResult(short token)
 		{
-			return _core.GetResult(token);
+			var result = _core.GetResult(token);
+			_core.Reset(); // Reset after GetResult to allow re-awaiting (if reused in future)
+			return result;
 		}
 
 		public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
@@ -117,32 +134,9 @@ public sealed class AsyncReaderWriterLock
 			_core.OnCompleted(continuation, state, token, flags);
 		}
 
-		public void Initialize(AsyncReaderWriterLock rwLock, bool isWriter)
-		{
-			_lock = rwLock;
-			_isWriter = isWriter;
-			_core.Reset();
-		}
-
 		public void SetResult(Releaser releaser)
 		{
 			_core.SetResult(releaser);
-			_lock._waiterPool.Return(this);
-		}
-	}
-
-	private class WaiterPool
-	{
-		private readonly ConcurrentQueue<Waiter> _pool = new();
-
-		public Waiter Rent()
-		{
-			return _pool.TryDequeue(out var waiter) ? waiter : new Waiter();
-		}
-
-		public void Return(Waiter waiter)
-		{
-			_pool.Enqueue(waiter);
 		}
 	}
 }

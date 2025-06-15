@@ -1,6 +1,8 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Channels;
 using BenchmarkDotNet.Attributes;
+using NExtensions.Async;
 
 namespace NExtensions.Benchmarking.Benchmarks;
 
@@ -10,37 +12,36 @@ namespace NExtensions.Benchmarking.Benchmarks;
 public class LockingBenchmarkUnlimited : LockingBenchmark
 {
 	[Benchmark]
-	public async Task ConcurrentQueue_Unlimited()
+	public async Task ConcurrentBag()
 	{
-		var queue = new ConcurrentQueue<Payload>();
+		var inputs = new ConcurrentBag<Payload>();
 		var enqueue = Enumerable.Range(0, Count).Select(async _ =>
 		{
 			await WaitMeAsync();
-			queue.Enqueue(Payload.Default);
+			inputs.Add(Payload.Default);
 		});
+	
 		var read = 0;
 		var reading = Enumerable.Range(0, Count).Select(async _ =>
 		{
-			while (read < Count)
+			while (true)
 			{
 				await WaitMeAsync();
-				if (queue.TryDequeue(out var payload))
-				{
-					Interlocked.Increment(ref read);
-					Bag.Add(payload);
-				}
+				if (!TryTakeLast(inputs, out var payload)) continue;
+				var currentRead = Interlocked.Increment(ref read);
+				if (currentRead > Count) break;
+				Bag.Add(payload);
 			}
 		});
-
+	
 		await Task.WhenAll(enqueue.Concat(reading).ToArray());
-
 		ThrowIfUnMatched();
 	}
-
-	[Benchmark]
-	public async Task QueueWithSemaphore_Unlimited()
+	
+	[Benchmark(Baseline = true)]
+	public async Task ListWithSemaphore()
 	{
-		var queue = new Queue<Payload>();
+		var inputs = new List<Payload>();
 		var semaphore = new SemaphoreSlim(1, 1);
 		var enqueue = Enumerable.Range(0, Count).Select(async _ =>
 		{
@@ -48,26 +49,27 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 			await semaphore.WaitAsync();
 			try
 			{
-				queue.Enqueue(Payload.Default);
+				inputs.Add(Payload.Default);
 			}
 			finally
 			{
 				semaphore.Release();
 			}
 		});
-
+	
 		var read = 0;
 		var reading = Enumerable.Range(0, Count).Select(async _ =>
 		{
-			while (read < Count)
+			while (true)
 			{
 				await WaitMeAsync();
 				await semaphore.WaitAsync();
 				try
 				{
-					if (queue.TryDequeue(out var payload))
+					if (TryTakeLast(inputs, out var payload))
 					{
-						Interlocked.Increment(ref read);
+						var current = Interlocked.Increment(ref read);
+						if (current > Count) break;
 						Bag.Add(payload);
 					}
 				}
@@ -77,13 +79,13 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 				}
 			}
 		});
-
+	
 		await Task.WhenAll(enqueue.Concat(reading).ToArray());
 		ThrowIfUnMatched();
 	}
-
-	[Benchmark(Baseline = true)]
-	public async Task Channelling_Unlimited()
+	
+	[Benchmark]
+	public async Task Channels()
 	{
 		var options = new UnboundedChannelOptions
 		{
@@ -96,7 +98,7 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 			await WaitMeAsync();
 			await channel.Writer.WriteAsync(Payload.Default);
 		}).ToArray();
-
+	
 		var consumers = Enumerable.Range(0, Count).Select(async _ =>
 		{
 			while (await channel.Reader.WaitToReadAsync() && channel.Reader.TryRead(out var item))
@@ -105,10 +107,46 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 				Bag.Add(item);
 			}
 		}).ToArray();
-
+	
 		await Task.WhenAll(producers);
 		channel.Writer.Complete();
 		await Task.WhenAll(consumers);
+		ThrowIfUnMatched();
+	}
+
+	[Benchmark]
+	public async Task ListWithAsyncReaderWriterLock()
+	{
+		var locker = new AsyncReaderWriterLock();
+		var inputs = new List<Payload>();
+		var enqueue = Enumerable.Range(0, Count).Select(async _ =>
+		{
+			await WaitMeAsync();
+			using (await locker.WriterLockAsync())
+			{
+				inputs.Add(Payload.Default);
+			}
+		});
+
+		var read = 0;
+		var reading = Enumerable.Range(0, Count).Select(async _ =>
+		{
+			while (true)
+			{
+				await WaitMeAsync();
+				using (await locker.ReaderLockAsync())
+				{
+					if (TryTakeLast(inputs, out var payload))
+					{
+						var current = Interlocked.Increment(ref read);
+						if (current > Count) break;
+						Bag.Add(payload);
+					}
+				}
+			}
+		});
+
+		await Task.WhenAll(enqueue.Concat(reading).ToArray());
 		ThrowIfUnMatched();
 	}
 }

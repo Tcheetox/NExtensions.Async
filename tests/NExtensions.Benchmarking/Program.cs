@@ -11,16 +11,16 @@ internal class Program
 	private static async Task Main(string[] args)
 	{
 #if DEBUG
-		var benchmark = new LockingBenchmarkLimited();
-		//await benchmark.ConcurrentQueue_Parallel();
+		var benchmark = new LockingBenchmarkUnlimited();
+		await benchmark.ListWithAsyncReaderWriterLock();
 		return;
 #endif
 
 		var config =
 			ManualConfig.Create(DefaultConfig.Instance)
-				.WithOption(ConfigOptions.DisableLogFile, true)
+				//.WithOption(ConfigOptions.DisableLogFile, true)
 				.WithSummaryStyle(SummaryStyle.Default.WithTimeUnit(TimeUnit.Millisecond));
-		BenchmarkRunner.Run<LockingBenchmarkLimited>(config);
-	//	BenchmarkRunner.Run<LockingBenchmarkUnlimited>(config);
+		//BenchmarkRunner.Run<LockingBenchmarkLimited>(config);
+		BenchmarkRunner.Run<LockingBenchmarkUnlimited>(config);
 	}
 }
