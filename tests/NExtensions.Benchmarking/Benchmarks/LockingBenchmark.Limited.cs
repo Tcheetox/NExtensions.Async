@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 using BenchmarkDotNet.Attributes;
+using NExtensions.Async;
 
 // ReSharper disable InconsistentNaming
 
@@ -11,15 +11,15 @@ using BenchmarkDotNet.Attributes;
 // ReSharper disable UnusedMember.Global
 namespace NExtensions.Benchmarking.Benchmarks;
 
-[SimpleJob(warmupCount: 2, iterationCount: 8)]
+//[SimpleJob(warmupCount: 2, iterationCount: 8)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
 public class LockingBenchmarkLimited : LockingBenchmark
 {
-	[Params("1/5", "1/10", "5/5", "5/10", "10/10", "10/5", "10/1", "5/1")]
+	[Params("1/10", "5/5", "5/10", "10/10", "10/5", "10/1")]
 	public string RW = "1/5";
 
-	[Params(1_000_000)]
+	[Params(10_000)]
 	public override int Count { get; set; } = 1_000_000;
 
 	[Params("yield")]
@@ -33,48 +33,46 @@ public class LockingBenchmarkLimited : LockingBenchmark
 	}
 
 	[Benchmark]
-	public async Task ConcurrentQueue()
+	public async Task ConcurrentBag()
 	{
-		var queue = new ConcurrentQueue<Payload>();
-		var enqueued = 0;
+		var inputs = new ConcurrentBag<Payload>();
 		var (readers, writers) = GetWorkersCount();
 		var writeOptions = new ParallelOptions { MaxDegreeOfParallelism = writers };
+		var enqueued = 0;
 		var enqueue = Parallel.ForAsync(0, writers, writeOptions, async (_, _) =>
 		{
 			while (true)
 			{
+				await WaitMeAsync();
 				var item = Interlocked.Increment(ref enqueued);
 				if (item > Count)
 					break;
-
-				await WaitMeAsync();
-				queue.Enqueue(Payload.Default);
+				inputs.Add(Payload.Default);
 			}
 		});
-
+	
 		var read = 0;
 		var readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
 		var reading = Parallel.ForAsync(0, readers, readOptions, async (_, _) =>
 		{
-			while (read < Count)
+			while (true)
 			{
 				await WaitMeAsync();
-				if (queue.TryDequeue(out var payload))
-				{
-					Interlocked.Increment(ref read);
-					Bag.Add(payload);
-				}
+				if (!TryTakeLast(inputs, out var payload)) continue;
+				var currentRead = Interlocked.Increment(ref read);
+				if (currentRead > Count) break;
+				Bag.Add(payload);
 			}
 		});
-
+	
 		await Task.WhenAll(enqueue, reading);
 		ThrowIfUnMatched();
 	}
-
-	[Benchmark]
-	public async Task QueueWithSemaphore()
+	
+	[Benchmark(Baseline = true)]
+	public async Task ListWithSemaphore()
 	{
-		var queue = new Queue<Payload>();
+		var inputs = new List<Payload>();
 		var semaphore = new SemaphoreSlim(1,1);
 		var enqueued = 0;
 		var (readers, writers) = GetWorkersCount();
@@ -86,12 +84,12 @@ public class LockingBenchmarkLimited : LockingBenchmark
 				var item = Interlocked.Increment(ref enqueued);
 				if (item > Count)
 					break;
-
+	
 				await WaitMeAsync();
 				await semaphore.WaitAsync(ct);
 				try
 				{
-					queue.Enqueue(Payload.Default);
+					inputs.Add(Payload.Default);
 				}
 				finally
 				{
@@ -99,7 +97,7 @@ public class LockingBenchmarkLimited : LockingBenchmark
 				}
 			}
 		});
-
+	
 		var read = 0;
 		var readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
 		var reading = Parallel.ForAsync(0, readers, readOptions, async (_, ct) =>
@@ -110,9 +108,10 @@ public class LockingBenchmarkLimited : LockingBenchmark
 				await semaphore.WaitAsync(ct);
 				try
 				{
-					if (queue.TryDequeue(out var payload))
+					if (TryTakeLast(inputs, out var payload))
 					{
-						Interlocked.Increment(ref read);
+						var current = Interlocked.Increment(ref read);
+						if (current > Count) break;
 						Bag.Add(payload);
 					}
 				}
@@ -122,21 +121,16 @@ public class LockingBenchmarkLimited : LockingBenchmark
 				}
 			}
 		});
-
+	
 		await Task.WhenAll(enqueue, reading);
 		ThrowIfUnMatched();
 	}
-	
-	[Benchmark(Baseline = true)]
-	public async Task Channelling()
-	{
-		var options = new UnboundedChannelOptions
-		{
-			SingleReader = false,
-			SingleWriter = false
-		};
-		var channel = Channel.CreateUnbounded<Payload>(options);
 
+	[Benchmark]
+	public async Task ListWithAsyncReaderWriterLock()
+	{
+		var inputs = new List<Payload>();
+		var locker = new AsyncReaderWriterLock();
 		var enqueued = 0;
 		var (readers, writers) = GetWorkersCount();
 		var writeOptions = new ParallelOptions { MaxDegreeOfParallelism = writers };
@@ -147,25 +141,79 @@ public class LockingBenchmarkLimited : LockingBenchmark
 				var item = Interlocked.Increment(ref enqueued);
 				if (item > Count)
 					break;
-
+	
+				
 				await WaitMeAsync();
-				await channel.Writer.WriteAsync(Payload.Default, ct);
+				using (await locker.WriterLockAsync(ct))
+				{
+					inputs.Add(Payload.Default);
+				}
 			}
 		});
-		
+	
+		var read = 0;
 		var readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
 		var reading = Parallel.ForAsync(0, readers, readOptions, async (_, ct) =>
 		{
-			while (await channel.Reader.WaitToReadAsync(ct) && channel.Reader.TryRead(out var item))
+			while (read < Count)
 			{
 				await WaitMeAsync();
-				Bag.Add(item);
+				using (await locker.ReaderLockAsync(ct))
+				{
+					if (!TryTakeLast(inputs, out var payload)) continue;
+					var current = Interlocked.Increment(ref read);
+					if (current > Count) break;
+					Bag.Add(payload);
+				}
 			}
 		});
-
-		await enqueue;
-		channel.Writer.Complete();
-		await reading;
+	
+		await Task.WhenAll(enqueue, reading);
+		ThrowIfUnMatched();
+	}
+	
+	[Benchmark]
+	public async Task ListWithAsyncReaderWriterLockSlim()
+	{
+		var inputs = new List<Payload>();
+		var locker = new AsyncReaderWriterLockSlim();
+		var enqueued = 0;
+		var (readers, writers) = GetWorkersCount();
+		var writeOptions = new ParallelOptions { MaxDegreeOfParallelism = writers };
+		var enqueue = Parallel.ForAsync(0, writers, writeOptions, async (_, _) =>
+		{
+			while (true)
+			{
+				var item = Interlocked.Increment(ref enqueued);
+				if (item > Count)
+					break;
+	
+				await WaitMeAsync();
+				using (await locker.WriterLockAsync())
+				{
+					inputs.Add(Payload.Default);
+				}
+			}
+		});
+	
+		var read = 0;
+		var readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
+		var reading = Parallel.ForAsync(0, readers, readOptions, async (_, _) =>
+		{
+			while (read < Count)
+			{
+				await WaitMeAsync();
+				using (await locker.ReaderLockAsync())
+				{
+					if (!TryTakeLast(inputs, out var payload)) continue;
+					var current = Interlocked.Increment(ref read);
+					if (current > Count) break;
+					Bag.Add(payload);
+				}
+			}
+		});
+	
+		await Task.WhenAll(enqueue, reading);
 		ThrowIfUnMatched();
 	}
 }

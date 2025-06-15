@@ -35,6 +35,20 @@ public abstract class LockingBenchmark
 		return item is not null;
 	}
 	
+	protected static bool TryTakeOne<T>(IEnumerable<T> enumerable, [NotNullWhen(true)] out T? item) where T : class
+	{
+		item = null;
+		foreach (var entry in enumerable)
+		{
+			item = entry;
+			// ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+			if (item is not null)
+				return true;
+		}
+			
+		return item is not null;
+	}
+	
 	protected async Task WaitMeAsync()
 	{
 		switch (Wait)
