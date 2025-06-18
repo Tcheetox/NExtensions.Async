@@ -26,10 +26,8 @@ public sealed class AsyncReaderWriterLock
 			}
 
 			var waiter = Rent();
-			if (cancellationToken.IsCancellationRequested)
-				return ValueTask.FromCanceled<Releaser>(cancellationToken);
 			if (cancellationToken.CanBeCanceled)
-				waiter.SetCancellation(isWriter: false, cancellationToken);
+				waiter.SetCancellation(cancellationToken);
 			_readerQueue.Enqueue(waiter);
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
@@ -65,10 +63,8 @@ public sealed class AsyncReaderWriterLock
 			}
 
 			var waiter = Rent();
-			if (cancellationToken.IsCancellationRequested)
-				return ValueTask.FromCanceled<Releaser>(cancellationToken);
 			if (cancellationToken.CanBeCanceled)
-				waiter.SetCancellation(isWriter: true, cancellationToken);
+				waiter.SetCancellation(cancellationToken);
 			_writerQueue.Enqueue(waiter);
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
@@ -76,8 +72,8 @@ public sealed class AsyncReaderWriterLock
 
 	private void Release(bool isWriter)
 	{
-		Waiter? toWake;
-		List<Waiter>? toWakeReaders = null;
+		Waiter? writerToWake;
+		List<Waiter>? readersToWake = null;
 
 		lock (_sync)
 		{
@@ -92,26 +88,33 @@ public sealed class AsyncReaderWriterLock
 
 			if (_writerActive || _readerCount > 0)
 				return; // Early exit.
-			
-			if (_writerQueue.TryDequeue(out toWake))
+
+			// Attempt to get a writer.
+			while (_writerQueue.TryDequeue(out writerToWake))
 			{
+				if (writerToWake.HasResult)
+					continue;
 				_writerActive = true;
+				break;
 			}
-			else if (_readerQueue.Count > 0)
+			
+			// Check for readers if no writers.
+			if (writerToWake is null && _readerQueue.Count > 0)
 			{
-				toWakeReaders = new List<Waiter>(_readerQueue.Count);
-				while (_readerQueue.TryDequeue(out var r))
-					toWakeReaders.Add(r);
-				_readerCount += toWakeReaders.Count; // Readers about to pick up (outside the lock).
+				// TODO: KRE, check if for performance that wouldn't be worth checking if there's a single reader queued?
+				readersToWake = new List<Waiter>(_readerQueue.Count);
+				while (_readerQueue.TryDequeue(out var waiter) && !waiter.HasResult) // Dismiss waiters which have canceled.
+					readersToWake.Add(waiter);
+				_readerCount += readersToWake.Count; // Readers about to pick up (outside the lock).
 			}
 		}
 
-		Debug.Assert(toWake == null || toWakeReaders == null, "Cannot wake both writer and readers simultaneously.");
+		Debug.Assert(writerToWake == null || readersToWake == null, "Cannot wake both writer and readers simultaneously.");
 		
 		// Do not call SetResult in the lock to avoid Lock contentions due to reentrancy (even though continuation is run async).
-		toWake?.SetResult(new Releaser(this, isWriter: true));
-		if (toWakeReaders == null) return;
-		foreach (var r in toWakeReaders)
+		writerToWake?.SetResult(new Releaser(this, isWriter: true));
+		if (readersToWake == null) return;
+		foreach (var r in readersToWake)
 			r.SetResult(new Releaser(this, isWriter: false));
 	}
 
@@ -136,7 +139,8 @@ public sealed class AsyncReaderWriterLock
 	{
 		private ManualResetValueTaskSourceCore<Releaser> _core = new()
 		{
-			RunContinuationsAsynchronously = true // Ensures no reentrancy and prevents the consumers to hijack the thread.
+			// Ensures no reentrancy and prevents the consumers to hijack the thread.
+			RunContinuationsAsynchronously = true 
 		};
 		public short Version => _core.Version;
 
@@ -146,27 +150,19 @@ public sealed class AsyncReaderWriterLock
 			_rwLock = rwLock;
 		}
 
+		public bool HasResult => _result != 0;
+
+		private int _result;
 		private CancellationTokenRegistration _cancellationRegistration;
-		private bool _isWriter;
-		public void SetCancellation(bool isWriter, CancellationToken cancellationToken)
+		public void SetCancellation(CancellationToken cancellationToken)
 		{
-			_cancellationRegistration.Dispose(); // Dispose previous, if any.
-			_isWriter = isWriter;
 			_cancellationRegistration = cancellationToken.Register(static state =>
 			{
 				var self = (Waiter)state!;
-				lock (self._rwLock._sync)
+				if (Interlocked.Exchange(ref self._result, 1) == 0)
 				{
-					var oldQueue = self._isWriter ? self._rwLock._writerQueue : self._rwLock._readerQueue;
-					while (oldQueue.Count > 0)
-					{
-						var waiter = oldQueue.Dequeue();
-						if (!ReferenceEquals(waiter, self))
-							oldQueue.Enqueue(waiter);
-					}
+					self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
 				}
-				
-				self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
 			}, this);
 		}
 		
@@ -178,8 +174,10 @@ public sealed class AsyncReaderWriterLock
 		public Releaser GetResult(short token)
 		{
 			var result = _core.GetResult(token);
+			// Reset the necessary fields before returning to the pool.
 			_cancellationRegistration.Dispose();
-			_core.Reset(); // Reset after GetResult to allow re-awaiting (if reused in future).
+			_core.Reset();
+			_result = 0;
 			_rwLock.Return(this);
 			return result;
 		}
@@ -191,7 +189,10 @@ public sealed class AsyncReaderWriterLock
 
 		public void SetResult(Releaser releaser)
 		{
-			_core.SetResult(releaser);
+			if (Interlocked.Exchange(ref _result, 1) == 0)
+			{
+				_core.SetResult(releaser);
+			}
 		}
 	}
 }

@@ -11,8 +11,8 @@ internal class Program
 	private static async Task Main(string[] args)
 	{
 #if DEBUG
-		var benchmark = new LockingBenchmarkLimited();
-		//await benchmark.ConcurrentBag();
+		var benchmark = new LockingBenchmarkUnlimited();
+		await benchmark.ListWithAsyncReaderWriterLock();
 		return;
 #endif
 		var config =
