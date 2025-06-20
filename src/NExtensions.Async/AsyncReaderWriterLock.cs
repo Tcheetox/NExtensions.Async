@@ -3,6 +3,7 @@ using System.Threading.Tasks.Sources;
 
 namespace NExtensions.Async;
 
+[DebuggerDisplay("Readers={_readerCount}/{_readerQueue.Count}, Writers={_writerActive}/{_writerQueue.Count}, Pool={_waiterPool.Count}")]
 public sealed class AsyncReaderWriterLock
 {
 	public enum ReleaseMode
@@ -119,6 +120,7 @@ public sealed class AsyncReaderWriterLock
 			reader.SetResult(new Releaser(this, ReleaseMode.Reader));
 	}
 
+	[DebuggerDisplay("Mode={_mode}")]
 	public struct Releaser : IDisposable
 	{
 		private readonly AsyncReaderWriterLock _lock;
@@ -140,6 +142,7 @@ public sealed class AsyncReaderWriterLock
 		}
 	}
 
+	[DebuggerDisplay("HasResult={HasResult}, IsCancelled={_cancellationRegistration.Token.IsCancellationRequested}")]
 	private sealed class Waiter : IValueTaskSource<Releaser>
 	{
 		private readonly AsyncReaderWriterLock _rwLock;
