@@ -34,7 +34,7 @@ public abstract class LockingBenchmark
 			item = entry;
 		return item is not null;
 	}
-	
+
 	protected static bool TryTakeOne<T>(IEnumerable<T> enumerable, [NotNullWhen(true)] out T? item) where T : class
 	{
 		item = null;
@@ -45,10 +45,10 @@ public abstract class LockingBenchmark
 			if (item is not null)
 				return true;
 		}
-			
+
 		return item is not null;
 	}
-	
+
 	protected async Task WaitMeAsync()
 	{
 		switch (Wait)

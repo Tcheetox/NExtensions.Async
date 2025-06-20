@@ -20,7 +20,7 @@ internal class Program
 				.WithOption(ConfigOptions.DisableLogFile, true)
 				.WithSummaryStyle(SummaryStyle.Default.WithTimeUnit(TimeUnit.Millisecond));
 		BenchmarkRunner.Run<LockingBenchmarkLimited>(config);
-		BenchmarkRunner.Run<LockingBenchmarkUnlimited>(config);
+		//BenchmarkRunner.Run<LockingBenchmarkUnlimited>(config);
 		await ValueTask.CompletedTask;
 	}
 }

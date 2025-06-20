@@ -1,11 +1,11 @@
-﻿using System.Collections.Concurrent;
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 using NExtensions.Async;
+
 // ReSharper disable AccessToDisposedClosure
 
 namespace NExtensions.Benchmarking.Benchmarks;
 
-//[SimpleJob(warmupCount: 3, iterationCount: 10)]
+[SimpleJob(warmupCount: 3, iterationCount: 10)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
 public class LockingBenchmarkUnlimited : LockingBenchmark
@@ -120,7 +120,7 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 		ThrowIfUnMatched();
 		canceller.Dispose();
 	}
-	
+
 	[Benchmark]
 	public async Task ListWithAsyncReaderWriterLockSlim()
 	{

@@ -6,17 +6,17 @@ namespace NExtensions.Async;
 public sealed class AsyncReaderWriterLockSlim
 {
 	private readonly Queue<Waiter> _readerQueue = new();
-	private readonly Queue<Waiter> _writerQueue = new();
-	private readonly Stack<Waiter> _waiterPool = new();
 	private readonly object _sync = new();
+	private readonly Stack<Waiter> _waiterPool = new();
+	private readonly Queue<Waiter> _writerQueue = new();
 	private int _readerCount;
 	private bool _writerActive;
-	
+
 	public ValueTask<Releaser> ReaderLockAsync(CancellationToken cancellationToken = default)
 	{
 		if (cancellationToken.IsCancellationRequested)
 			return ValueTask.FromCanceled<Releaser>(cancellationToken);
-		
+
 		lock (_sync)
 		{
 			if (!_writerActive && _writerQueue.Count == 0)
@@ -48,12 +48,12 @@ public sealed class AsyncReaderWriterLockSlim
 			_waiterPool.Push(waiter);
 		}
 	}
-	
+
 	public ValueTask<Releaser> WriterLockAsync(CancellationToken cancellationToken = default)
 	{
 		if (cancellationToken.IsCancellationRequested)
 			return ValueTask.FromCanceled<Releaser>(cancellationToken);
-		
+
 		lock (_sync)
 		{
 			if (!_writerActive && _readerCount == 0)
@@ -97,7 +97,7 @@ public sealed class AsyncReaderWriterLockSlim
 				_writerActive = true;
 				break;
 			}
-			
+
 			// Check for readers if no writers.
 			if (writerToWake is null && _readerQueue.Count > 0)
 			{
@@ -109,12 +109,12 @@ public sealed class AsyncReaderWriterLockSlim
 		}
 
 		Debug.Assert(writerToWake == null || readersToWake == null, "Cannot wake both writer and readers simultaneously.");
-		
+
 		// Do not call SetResult in the lock to avoid Lock contentions due to reentrancy (even though continuation is run async).
-		writerToWake?.SetResult(new Releaser(this, isWriter: true));
+		writerToWake?.SetResult(new Releaser(this, true));
 		if (readersToWake == null) return;
 		foreach (var r in readersToWake)
-			r.SetResult(new Releaser(this, isWriter: false));
+			r.SetResult(new Releaser(this, false));
 	}
 
 	public readonly struct Releaser : IDisposable
@@ -136,38 +136,27 @@ public sealed class AsyncReaderWriterLockSlim
 
 	private sealed class Waiter : IValueTaskSource<Releaser>
 	{
+		private readonly AsyncReaderWriterLockSlim _rwLock;
+		private readonly object _sync = new();
+		private CancellationTokenRegistration _cancellationRegistration;
+
 		private ManualResetValueTaskSourceCore<Releaser> _core = new()
 		{
 			// Ensures no reentrancy and prevents the consumers to hijack the thread.
-			RunContinuationsAsynchronously = true 
+			RunContinuationsAsynchronously = true
 		};
-		public short Version => _core.Version;
 
-		private readonly AsyncReaderWriterLockSlim _rwLock;
+		private int _result;
+
 		public Waiter(AsyncReaderWriterLockSlim rwLock)
 		{
 			_rwLock = rwLock;
 		}
 
+		public short Version => _core.Version;
+
 		public bool HasResult => _result != 0;
-		
-		private int _result;
-		private CancellationTokenRegistration _cancellationRegistration;
-		private readonly object _sync = new();
-		public void SetCancellation(CancellationToken cancellationToken)
-		{
-			_cancellationRegistration = cancellationToken.Register(static state =>
-			{
-				var self = (Waiter)state!;
-				lock(self._sync)
-				{
-					if (self._result == 0) self._result = 1;
-					else return;
-				}
-				self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
-			}, this);
-		}
-		
+
 		public ValueTaskSourceStatus GetStatus(short token)
 		{
 			return _core.GetStatus(token);
@@ -188,6 +177,21 @@ public sealed class AsyncReaderWriterLockSlim
 			_core.OnCompleted(continuation, state, token, flags);
 		}
 
+		public void SetCancellation(CancellationToken cancellationToken)
+		{
+			_cancellationRegistration = cancellationToken.Register(static state =>
+			{
+				var self = (Waiter)state!;
+				lock (self._sync)
+				{
+					if (self._result == 0) self._result = 1;
+					else return;
+				}
+
+				self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
+			}, this);
+		}
+
 		public void SetResult(Releaser releaser)
 		{
 			lock (_sync)
@@ -195,6 +199,7 @@ public sealed class AsyncReaderWriterLockSlim
 				if (_result == 0) _result = 1;
 				else return;
 			}
+
 			_core.SetResult(releaser);
 		}
 	}

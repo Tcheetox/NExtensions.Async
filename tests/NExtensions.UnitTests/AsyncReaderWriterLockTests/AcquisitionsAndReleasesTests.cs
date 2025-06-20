@@ -15,12 +15,12 @@ public class AcquisitionsAndReleasesTests
 		var task = rwLock.ReaderLockAsync();
 		var acquired = task.IsCompletedSuccessfully;
 		var releaser = await task;
-		
+
 		// Assert
 		acquired.ShouldBeTrue();
 		Should.NotThrow(() => releaser.Dispose());
 	}
-	
+
 	[Fact]
 	public async Task WriterLockAsync_ShouldAcquireImmediately_WhenNoReadersOrActiveWriter()
 	{
@@ -37,7 +37,7 @@ public class AcquisitionsAndReleasesTests
 		var releaser = await task;
 		Should.NotThrow(() => releaser.Dispose());
 	}
-	
+
 	[Fact]
 	public async Task ReaderLockAsync_ShouldQueue_WhenWriterActiveOrQueuedWritersExist()
 	{
@@ -56,7 +56,7 @@ public class AcquisitionsAndReleasesTests
 		Should.Throw<InvalidOperationException>(() => readerTask.IsCompleted, "The result has been consumed, thus internal state is reset.");
 		Should.NotThrow(() => readerReleaser.Dispose());
 	}
-	
+
 	[Fact]
 	public async Task WriterLockAsync_ShouldQueue_WhenWriterActiveOrReadersExist()
 	{
@@ -73,9 +73,9 @@ public class AcquisitionsAndReleasesTests
 		Should.Throw<InvalidOperationException>(() => writerTask.IsCompleted, "The result has been consumed, thus internal state is reset.");
 		Should.NotThrow(() => writerReleaser.Dispose());
 	}
-	
+
 	[Fact]
-	public async Task WriterLockAsync_ShouldResumeAfterAllReadersReleased()
+	public async Task WriterLockAsync_ShouldResume_WhenAllReadersReleased()
 	{
 		// Arrange
 		var rwLock = new AsyncReaderWriterLock();
@@ -94,7 +94,7 @@ public class AcquisitionsAndReleasesTests
 		var writerReleaser = await writerTask;
 		writerReleaser.Dispose();
 	}
-	
+
 	[Fact]
 	public async Task WriterLockAsync_ShouldResumeNextWriter_WhenMultipleWritersQueued()
 	{
@@ -116,12 +116,12 @@ public class AcquisitionsAndReleasesTests
 		writerTask2.IsCompletedSuccessfully.ShouldBeTrue();
 		(await writerTask2).Dispose();
 	}
-	
+
 	[Fact]
 	public async Task ReaderLockAsync_ShouldResumeOnly_AfterAllWritersReleased()
 	{
 		var rwLock = new AsyncReaderWriterLock();
-		
+
 		var writer1 = await rwLock.WriterLockAsync();
 		var writer2Task = rwLock.WriterLockAsync();
 		var readerTask = rwLock.ReaderLockAsync();
@@ -131,7 +131,7 @@ public class AcquisitionsAndReleasesTests
 		readerTask.IsCompleted.ShouldBeTrue();
 		(await readerTask).Dispose();
 	}
-	
+
 	[Fact]
 	public async Task WriterLockAsync_ShouldTakePriority_OverSubsequentReaders()
 	{
@@ -148,5 +148,27 @@ public class AcquisitionsAndReleasesTests
 		(await writerTask).Dispose();
 		reader2Task.IsCompletedSuccessfully.ShouldBeTrue();
 		(await reader2Task).Dispose();
+	}
+
+	[Fact]
+	public async Task WriterLockAsync_ThrowsObjectDisposedException_WhenDisposedTwice()
+	{
+		var rwLock = new AsyncReaderWriterLock();
+
+		var writer = await rwLock.WriterLockAsync();
+		writer.Dispose();
+
+		Should.Throw<ObjectDisposedException>(() => writer.Dispose());
+	}
+
+	[Fact]
+	public async Task ReaderLockAsync_ThrowsObjectDisposedException_WhenDisposedTwice()
+	{
+		var rwLock = new AsyncReaderWriterLock();
+
+		var reader = await rwLock.ReaderLockAsync();
+		reader.Dispose();
+
+		Should.Throw<ObjectDisposedException>(() => reader.Dispose());
 	}
 }

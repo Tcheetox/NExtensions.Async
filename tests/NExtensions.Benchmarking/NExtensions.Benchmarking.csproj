@@ -16,7 +16,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\NExtensions.Async\NExtensions.Async.csproj" />
+        <ProjectReference Include="..\..\src\NExtensions.Async\NExtensions.Async.csproj"/>
     </ItemGroup>
 
 </Project>
