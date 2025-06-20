@@ -20,7 +20,7 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 			await WaitMeAsync();
 			inputs.Add(Payload.Default);
 		});
-	
+
 		var read = 0;
 		var reading = Enumerable.Range(0, Count).Select(async _ =>
 		{
@@ -33,11 +33,11 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 				Bag.Add(payload);
 			}
 		});
-	
+
 		await Task.WhenAll(enqueue.Concat(reading).ToArray());
 		ThrowIfUnMatched();
 	}
-	
+
 	[Benchmark(Baseline = true)]
 	public async Task ListWithSemaphore()
 	{
@@ -56,7 +56,7 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 				semaphore.Release();
 			}
 		});
-	
+
 		var read = 0;
 		var reading = Enumerable.Range(0, Count).Select(async _ =>
 		{
@@ -79,7 +79,7 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 				}
 			}
 		});
-	
+
 		await Task.WhenAll(enqueue.Concat(reading).ToArray());
 		ThrowIfUnMatched();
 	}
@@ -120,41 +120,5 @@ public class LockingBenchmarkUnlimited : LockingBenchmark
 		await Task.WhenAll(enqueue.Concat(reading).ToArray());
 		ThrowIfUnMatched();
 		canceller.Dispose();
-	}
-
-	[Benchmark]
-	public async Task ListWithAsyncReaderWriterLockSlim()
-	{
-		var locker = new AsyncReaderWriterLockSlim();
-		var inputs = new List<Payload>();
-		var enqueue = Enumerable.Range(0, Count).Select(async _ =>
-		{
-			await WaitMeAsync();
-			using (await locker.WriterLockAsync())
-			{
-				inputs.Add(Payload.Default);
-			}
-		});
-
-		var read = 0;
-		var reading = Enumerable.Range(0, Count).Select(async _ =>
-		{
-			while (true)
-			{
-				await WaitMeAsync();
-				using (await locker.ReaderLockAsync())
-				{
-					if (TryTakeLast(inputs, out var payload))
-					{
-						var current = Interlocked.Increment(ref read);
-						if (current > Count) break;
-						Bag.Add(payload);
-					}
-				}
-			}
-		});
-
-		await Task.WhenAll(enqueue.Concat(reading).ToArray());
-		ThrowIfUnMatched();
 	}
 }

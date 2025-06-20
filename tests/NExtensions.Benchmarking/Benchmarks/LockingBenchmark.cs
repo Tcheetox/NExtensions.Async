@@ -66,6 +66,7 @@ public abstract class LockingBenchmark
 		}
 	}
 
+	// ReSharper disable once MemberCanBePrivate.Global
 	public class InvalidBenchmarkException : Exception
 	{
 		public InvalidBenchmarkException(string message) : base(message)
@@ -80,6 +81,7 @@ public abstract class LockingBenchmark
 		// ReSharper disable once NotAccessedField.Local
 		public readonly int Value;
 
+		// ReSharper disable once MemberCanBePrivate.Global
 		public Payload(int value)
 		{
 			Value = value;

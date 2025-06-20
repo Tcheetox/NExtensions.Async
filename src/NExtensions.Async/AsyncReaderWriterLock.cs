@@ -3,13 +3,31 @@ using System.Threading.Tasks.Sources;
 
 namespace NExtensions.Async;
 
+/// <summary>
+/// Provides an asynchronous reader-writer lock supporting multiple concurrent readers
+/// and exclusive writers, with support for cancellation and pooling to reduce <see cref="Waiter"/> allocations.
+/// </summary>
 [DebuggerDisplay("Readers={_readerCount}/{_readerQueue.Count}, Writers={_writerActive}/{_writerQueue.Count}, Pool={_waiterPool.Count}")]
 public sealed class AsyncReaderWriterLock
 {
+	/// <summary>
+	/// Represents the mode used during release: Reader, Writer, or Faulted (e.g., due to cancellation).
+	/// </summary>
 	public enum ReleaseMode
 	{
+		/// <summary>
+		/// Indicates that the lock was released due to a fault (e.g., task cancellation).
+		/// </summary>
 		Faulted,
+
+		/// <summary>
+		/// Indicates the lock was held and released by a writer.
+		/// </summary>
 		Writer,
+
+		/// <summary>
+		/// Indicates the lock was held and released by a reader.
+		/// </summary>
 		Reader
 	}
 
@@ -20,6 +38,13 @@ public sealed class AsyncReaderWriterLock
 	private int _readerCount;
 	private bool _writerActive;
 
+	/// <summary>
+	/// Acquires a reader lock asynchronously. Multiple readers may acquire the lock simultaneously
+	/// unless a writer is waiting or active. Can be canceled.
+	/// </summary>
+	/// <param name="cancellationToken">A token to cancel the request.</param>
+	/// <returns>A <see cref="ValueTask{Releaser}"/> that completes when the reader lock is acquired - must be disposed to release subsequent <see cref="Waiter"/>.</returns>
+	/// <exception cref="OperationCanceledException">If the token gets canceled before the lock is acquired.</exception>
 	public ValueTask<Releaser> ReaderLockAsync(CancellationToken cancellationToken = default)
 	{
 		if (cancellationToken.IsCancellationRequested)
@@ -41,6 +66,13 @@ public sealed class AsyncReaderWriterLock
 		}
 	}
 
+	/// <summary>
+	/// Acquires a writer lock asynchronously. Only one writer can hold the lock,
+	/// and it requires exclusive access (no active readers or writers). Can be canceled.
+	/// </summary>
+	/// <param name="cancellationToken">A token to cancel the request.</param>
+	/// <returns>A <see cref="ValueTask{Releaser}"/> that completes when the writer lock is acquired - must be disposed to release subsequent <see cref="Waiter"/>.</returns>
+	/// <exception cref="OperationCanceledException">If the token gets canceled before the lock is acquired.</exception>
 	public ValueTask<Releaser> WriterLockAsync(CancellationToken cancellationToken = default)
 	{
 		if (cancellationToken.IsCancellationRequested)
@@ -55,7 +87,7 @@ public sealed class AsyncReaderWriterLock
 			}
 
 			var waiter = Rent();
-			if (cancellationToken.CanBeCanceled)
+			if (cancellationToken.CanBeCanceled) // Avoid binding useless tokens.
 				waiter.SetCancellation(cancellationToken);
 			_writerQueue.Enqueue(waiter);
 			return new ValueTask<Releaser>(waiter, waiter.Version);
@@ -103,7 +135,7 @@ public sealed class AsyncReaderWriterLock
 			// Check for readers if no writers.
 			if (writerToWake is null && _readerQueue.Count > 0)
 			{
-				// TODO: KRE, check if for performance that wouldn't be worth checking if there's a single reader queued?
+				Debug.Assert(!_writerActive, "Cannot have an active writer when about to wake readers.");
 				readersToWake = new List<Waiter>(_readerQueue.Count);
 				while (_readerQueue.TryDequeue(out var waiter) && !waiter.HasResult) // Dismiss waiters which have canceled.
 					readersToWake.Add(waiter);
@@ -113,13 +145,17 @@ public sealed class AsyncReaderWriterLock
 
 		Debug.Assert(writerToWake == null || readersToWake == null, "Cannot wake both writer and readers simultaneously.");
 
-		// Do not call SetResult in the lock to avoid Lock contentions due to reentrancy (even though continuation is run async).
+		// Do not call SetResult in the lock to reduce potential contentions.
 		writerToWake?.SetResult(new Releaser(this, ReleaseMode.Writer));
 		if (readersToWake == null) return;
 		foreach (var reader in readersToWake)
 			reader.SetResult(new Releaser(this, ReleaseMode.Reader));
 	}
 
+	/// <summary>
+	/// Represents a releasable struct handle to the reader or writer lock.
+	/// Releasing the handle returns the lock and wakes up waiting operations.
+	/// </summary>
 	[DebuggerDisplay("Mode={_mode}")]
 	public struct Releaser : IDisposable
 	{
@@ -134,6 +170,10 @@ public sealed class AsyncReaderWriterLock
 
 		private int _disposed;
 
+		/// <summary>
+		/// Releases the lock - must only be called once.
+		/// </summary>
+		/// <exception cref="ObjectDisposedException">If called multiple times.</exception>
 		public void Dispose()
 		{
 			var disposed = Interlocked.Exchange(ref _disposed, 1);
@@ -188,7 +228,7 @@ public sealed class AsyncReaderWriterLock
 
 		public void SetCancellation(CancellationToken cancellationToken)
 		{
-			_cancellationRegistration = cancellationToken.Register(static state =>
+			_cancellationRegistration = cancellationToken.Register(static state => // This closure must be static to reduce allocation.
 			{
 				var self = (Waiter)state!;
 				if (Interlocked.Exchange(ref self._result, 1) == 0)

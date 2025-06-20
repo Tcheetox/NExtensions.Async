@@ -1,10 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
-using NExtensions.Async;
+using AsyncReaderWriterLock = Nito.AsyncEx.AsyncReaderWriterLock;
 
 // ReSharper disable InconsistentNaming
-
 // ReSharper disable FieldCanBeMadeReadOnly.Global
 // ReSharper disable ConvertToConstant.Global
 // ReSharper disable MemberCanBePrivate.Global
@@ -127,10 +126,55 @@ public class LockingBenchmarkLimited : LockingBenchmark
 	}
 
 	[Benchmark]
-	public async Task ListWithAsyncReaderWriterLock()
+	public async Task ListWithAsyncEx()
 	{
 		var inputs = new List<Payload>();
 		var locker = new AsyncReaderWriterLock();
+		var enqueued = 0;
+		var (readers, writers) = GetWorkersCount();
+		var writeOptions = new ParallelOptions { MaxDegreeOfParallelism = writers };
+		var enqueue = Parallel.ForAsync(0, writers, writeOptions, async (_, ct) =>
+		{
+			while (true)
+			{
+				var item = Interlocked.Increment(ref enqueued);
+				if (item > Count)
+					break;
+
+				await WaitMeAsync();
+				using (await locker.WriterLockAsync(ct))
+				{
+					inputs.Add(Payload.Default);
+				}
+			}
+		});
+
+		var read = 0;
+		var readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
+		var reading = Parallel.ForAsync(0, readers, readOptions, async (_, ct) =>
+		{
+			while (read < Count)
+			{
+				await WaitMeAsync();
+				using (await locker.ReaderLockAsync(ct))
+				{
+					if (!TryTakeLast(inputs, out var payload)) continue;
+					var current = Interlocked.Increment(ref read);
+					if (current > Count) break;
+					Bag.Add(payload);
+				}
+			}
+		});
+
+		await Task.WhenAll(enqueue, reading);
+		ThrowIfUnMatched();
+	}
+
+	[Benchmark]
+	public async Task ListWithAsyncReaderWriterLock()
+	{
+		var inputs = new List<Payload>();
+		var locker = new Async.AsyncReaderWriterLock();
 		var canceller = new CancellationTokenSource();
 		var enqueued = 0;
 		var (readers, writers) = GetWorkersCount();
@@ -180,50 +224,5 @@ public class LockingBenchmarkLimited : LockingBenchmark
 		await Task.WhenAll(enqueue, reading);
 		ThrowIfUnMatched();
 		canceller.Dispose();
-	}
-
-	[Benchmark]
-	public async Task ListWithAsyncReaderWriterLockSlim()
-	{
-		var inputs = new List<Payload>();
-		var locker = new AsyncReaderWriterLockSlim();
-		var enqueued = 0;
-		var (readers, writers) = GetWorkersCount();
-		var writeOptions = new ParallelOptions { MaxDegreeOfParallelism = writers };
-		var enqueue = Parallel.ForAsync(0, writers, writeOptions, async (_, ct) =>
-		{
-			while (true)
-			{
-				var item = Interlocked.Increment(ref enqueued);
-				if (item > Count)
-					break;
-
-				await WaitMeAsync();
-				using (await locker.WriterLockAsync(ct))
-				{
-					inputs.Add(Payload.Default);
-				}
-			}
-		});
-
-		var read = 0;
-		var readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
-		var reading = Parallel.ForAsync(0, readers, readOptions, async (_, ct) =>
-		{
-			while (read < Count)
-			{
-				await WaitMeAsync();
-				using (await locker.ReaderLockAsync(ct))
-				{
-					if (!TryTakeLast(inputs, out var payload)) continue;
-					var current = Interlocked.Increment(ref read);
-					if (current > Count) break;
-					Bag.Add(payload);
-				}
-			}
-		});
-
-		await Task.WhenAll(enqueue, reading);
-		ThrowIfUnMatched();
 	}
 }
