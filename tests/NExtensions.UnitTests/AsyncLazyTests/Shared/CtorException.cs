@@ -20,6 +20,11 @@ public class CtorException : Exception
 		throw new CtorException();
 	}
 
+	public static Task<VoidResult> ThrowsDirectly()
+	{
+		throw new CtorException();
+	}
+
 	public static void Reset()
 	{
 		Interlocked.Exchange(ref _counter, 0);

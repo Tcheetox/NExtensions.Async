@@ -3,45 +3,45 @@ using System.Runtime.CompilerServices;
 
 namespace NExtensions.Async;
 
-public enum LazyRetryPolicy
+public enum LazyAsyncThreadSafetyMode
 {
-	None,
-	Retry,
-	StrictRetry
+	None, // No guarantee, no retry
+	NoneWithRetry, // No guarantee, only success are stored for good
+	PublicationOnly, // Guaranteed same value for every consumer, no retry
+	PublicationOnlyWithRetry,
+	ExecutionAndPublication,
+	ExecutionAndPublicationWithRetry
 }
 
+// TODO: ideally we may want to implements IDisposable on this
 public class AsyncLazy<T>
 {
-	private readonly Func<CancellationToken, Task<T>> _factory;
-	private readonly LazyThreadSafetyMode _mode;
-	private readonly LazyRetryPolicy _policy;
-
+	private readonly LazyAsyncThreadSafetyMode _mode;
 	private readonly Lazy<SemaphoreSlim> _sync = new(() => new SemaphoreSlim(1, 1));
 
+	private Func<CancellationToken, Task<T>> _factory;
 	private Task<T>? _value;
 
 	public AsyncLazy(Func<Task<T>> valueFactory,
-		LazyThreadSafetyMode mode = LazyThreadSafetyMode.ExecutionAndPublication,
-		LazyRetryPolicy policy = LazyRetryPolicy.None)
-		: this(_ => valueFactory(), mode, policy)
+		LazyAsyncThreadSafetyMode mode = LazyAsyncThreadSafetyMode.ExecutionAndPublication)
+		: this(_ => valueFactory(), mode)
 	{
 	}
 
 	public AsyncLazy(Func<CancellationToken, Task<T>> valueFactory,
-		LazyThreadSafetyMode mode = LazyThreadSafetyMode.ExecutionAndPublication,
-		LazyRetryPolicy policy = LazyRetryPolicy.None)
+		LazyAsyncThreadSafetyMode mode = LazyAsyncThreadSafetyMode.ExecutionAndPublication)
 	{
 		ArgumentNullException.ThrowIfNull(valueFactory);
 		_factory = valueFactory;
 		_mode = mode;
-		_policy = policy;
 	}
 
-	public bool IsValueCreated => _value != null;
-	public bool IsRetryable => _policy is LazyRetryPolicy.Retry or LazyRetryPolicy.StrictRetry;
-	public bool IsCompleted => _value?.IsCompleted ?? false;
-	public bool IsFaulted => _value?.IsFaulted ?? false;
-	public bool IsCanceled => _value?.IsCanceled ?? false;
+	// ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+	internal bool HasFactory => _factory is not null;
+
+	public bool IsRetryable => _mode is LazyAsyncThreadSafetyMode.NoneWithRetry
+		or LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry
+		or LazyAsyncThreadSafetyMode.PublicationOnlyWithRetry;
 
 	public TaskAwaiter<T> GetAwaiter()
 	{
@@ -56,144 +56,146 @@ public class AsyncLazy<T>
 
 		return _mode switch
 		{
-			// No guarantees.
-			LazyThreadSafetyMode.None => GetNoneValueAsync(cancellationToken),
-			// Same exposure for everyone.
-			LazyThreadSafetyMode.PublicationOnly => GetPublicationOnlyValueAsync(cancellationToken),
-			// Full protection.
-			LazyThreadSafetyMode.ExecutionAndPublication => GetExecutionAndPublicationValueAsync(cancellationToken),
+			LazyAsyncThreadSafetyMode.None => GetNoneAsync(cancellationToken),
+			LazyAsyncThreadSafetyMode.NoneWithRetry => GetNoneWithRetryAsync(cancellationToken),
+			LazyAsyncThreadSafetyMode.PublicationOnly => GetPublicationOnlyAsync(cancellationToken),
+			LazyAsyncThreadSafetyMode.PublicationOnlyWithRetry => GetPublicationOnlyWithRetryAsync(cancellationToken),
+			LazyAsyncThreadSafetyMode.ExecutionAndPublication => GetExecutionAndPublicationAsync(cancellationToken),
+			LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry => GetExecutionAndPublicationWithRetryAsync(cancellationToken),
 			_ => throw new NotSupportedException($"Mode {_mode} is not supported.")
 		};
 	}
 
-	private async Task<T> GetNoneValueAsync(CancellationToken cancellationToken = default)
+	private async Task<T> GetNoneAsync(CancellationToken cancellationToken = default)
 	{
-		switch (_policy)
+		try
 		{
-			case LazyRetryPolicy.Retry:
-				try
-				{
-					_value = _factory(cancellationToken); // Everyone can await but there's only one task that will actually reset the value.
-					return await _value;
-				}
-				catch
-				{
-					_value = null;
-					throw;
-				}
-
-			case LazyRetryPolicy.StrictRetry:
-				try
-				{
-					var local = _factory(cancellationToken);
-					var result = await local;
-					_value = local;
-					return result;
-				}
-				catch
-				{
-					_value = null;
-					throw;
-				}
-
-			// No try-catch block overhead.
-			case LazyRetryPolicy.None:
-			default:
-				_value = _factory(cancellationToken);
-				return await _value;
+			_value = _factory(cancellationToken);
+			return await _value.ConfigureAwait(false);
+		}
+		catch (Exception e)
+		{
+			_value ??= Task.FromException<T>(e);
+			throw;
+		}
+		finally
+		{
+			_factory = null!;
 		}
 	}
 
-	private async Task<T> GetPublicationOnlyValueAsync(CancellationToken cancellationToken = default)
+	private async Task<T> GetNoneWithRetryAsync(CancellationToken cancellationToken = default)
 	{
-		switch (_policy)
+		try
 		{
-			case LazyRetryPolicy.None:
-			{
-				var local = _factory(cancellationToken);
-				var published = Interlocked.CompareExchange(ref _value, local, null);
-				return await (published ?? local);
-			}
-
-			case LazyRetryPolicy.Retry:
-				try
-				{
-					var local = _factory(cancellationToken);
-					var published = Interlocked.CompareExchange(ref _value, local, null);
-					return await (published ?? local);
-				}
-				catch
-				{
-					_ = Interlocked.Exchange(ref _value, null);
-					throw;
-				}
-
-			case LazyRetryPolicy.StrictRetry:
-			default:
-#if DEBUG
-				try
-				{
-#endif
-					var local = _factory(cancellationToken);
-					_ = await local; // Ensures local gets completed, only swap on success.
-					var published = Interlocked.CompareExchange(ref _value, local, null) ?? local;
-					Debug.Assert(published.IsCompletedSuccessfully,
-						$"Only success must be published with this combination of {LazyThreadSafetyMode.PublicationOnly} and {LazyRetryPolicy.Retry}.");
-					return await published;
-#if DEBUG
-				}
-				catch
-				{
-					Debug.Assert(_value is null);
-					throw;
-				}
-#endif
+			var local = _factory(cancellationToken);
+			var result = await local.ConfigureAwait(false);
+			_value = local;
+			_factory = null!;
+			return result;
+		}
+		catch
+		{
+			_value = null;
+			throw;
 		}
 	}
 
-	private async Task<T> GetExecutionAndPublicationValueAsync(CancellationToken cancellationToken = default)
+	private async Task<T> GetPublicationOnlyAsync(CancellationToken cancellationToken = default)
 	{
-		if (_policy is not LazyRetryPolicy.None)
+		try
 		{
-			await _sync.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
-			try
-			{
-				if (_value is not null)
-					return await _value.ConfigureAwait(false);
-
-				if (_policy is LazyRetryPolicy.Retry)
-				{
-					_value = _factory(cancellationToken);
-					return await _value;
-				}
-
-				var local = _factory(cancellationToken);
-				var result = await local;
-				_value = local;
-				return result;
-			}
-			catch
-			{
-				_value = null;
-				throw;
-			}
-			finally
-			{
-				_sync.Value.Release();
-			}
+			var local = _factory(cancellationToken);
+			var published = Interlocked.CompareExchange(ref _value, local, null);
+			return await (published ?? local).ConfigureAwait(false);
 		}
+		catch (Exception ex)
+		{
+			var error = Task.FromException<T>(ex);
+			var published = Interlocked.CompareExchange(ref _value, error, null) ?? error;
+			Debug.Assert(published.IsCompleted);
+			return await published.ConfigureAwait(false);
+		}
+		finally
+		{
+			_factory = null!;
+		}
+	}
 
+	private async Task<T> GetPublicationOnlyWithRetryAsync(CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			var local = _factory(cancellationToken);
+			_ = await local.ConfigureAwait(false);
+			var published = Interlocked.CompareExchange(ref _value, local, null) ?? local;
+			Debug.Assert(published.IsCompletedSuccessfully);
+			return await published.ConfigureAwait(false);
+		}
+		catch (Exception ex)
+		{
+			var error = Task.FromException<T>(ex);
+			// Do not store exception when retryable, but check still check if another thread might have succeeded in the meantime.
+			var published = Interlocked.CompareExchange(ref _value, null, null) ?? error;
+			Debug.Assert(published.IsCompleted);
+			return await published.ConfigureAwait(false);
+		}
+		finally
+		{
+			var local = _value;
+			if (local is not null && local.IsCompletedSuccessfully)
+				_factory = null!;
+		}
+	}
+
+	private async Task<T> GetExecutionAndPublicationAsync(CancellationToken cancellationToken = default)
+	{
+		// No retry policy, do not await within the semaphore to ensure quick release if not awaited directly by the caller.
+		Task<T> noRetry;
 		await _sync.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
 		try
 		{
-			if (_value is not null)
-				return await _value.ConfigureAwait(false);
-			_value = _factory(cancellationToken);
-			return await _value;
+			noRetry = _value ??= _factory(cancellationToken);
+		}
+		catch (Exception ex)
+		{
+			_value ??= Task.FromException<T>(ex);
+			throw;
+		}
+		finally
+		{
+			_factory = null!;
+			_sync.Value.Release();
+			Debug.Assert(_value is not null);
+		}
+
+		return await noRetry.ConfigureAwait(false);
+	}
+
+	private async Task<T> GetExecutionAndPublicationWithRetryAsync(CancellationToken cancellationToken = default)
+	{
+		await _sync.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			var local = _value ?? _factory(cancellationToken);
+			var result = await local.ConfigureAwait(false);
+			_value = local;
+			_factory = null!;
+			return result;
 		}
 		finally
 		{
 			_sync.Value.Release();
 		}
 	}
+
+	#region Snapshot
+
+	public bool IsValueCreated => _value != null;
+	public bool IsCompleted => _value?.IsCompleted ?? false;
+	public bool IsFaulted => _value?.IsFaulted ?? false;
+	public bool IsCanceled => _value?.IsCanceled ?? false;
+	public bool IsCompletedSuccessfully => _value?.IsCompletedSuccessfully ?? false;
+
+	#endregion
 }

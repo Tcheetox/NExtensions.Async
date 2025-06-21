@@ -12,23 +12,34 @@ public class GeneralTests : NonParallelTests
 	[Fact]
 	public async Task GetValueAsync_ReturnsTheSameInstance_AsIfDirectlyAwaited()
 	{
-		var asyncLazy = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyThreadSafetyMode.None, LazyRetryPolicy.None);
+		foreach (var mode in Enum.GetValues<LazyAsyncThreadSafetyMode>())
+		{
+			VoidResult.Reset();
+			var asyncLazy = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), mode);
 
-		var value = await asyncLazy;
-		var alsoValue = await asyncLazy.GetValueAsync();
-		value.ShouldBe(alsoValue);
+			var value = await asyncLazy;
+			var alsoValue = await asyncLazy.GetValueAsync();
+			value.ShouldBe(alsoValue);
 
-		VoidResult.Counter.ShouldBe(1);
+			VoidResult.Counter.ShouldBe(1);
+		}
 	}
 
 	[Fact]
 	public void AsyncLazy_IsRetryable_ForRetryablePolicies()
 	{
-		var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyThreadSafetyMode.None, LazyRetryPolicy.None);
+		var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyAsyncThreadSafetyMode.ExecutionAndPublication);
 		asyncLazyNoRetry.IsRetryable.ShouldBeFalse();
-		var asyncLazyWithRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyThreadSafetyMode.None, LazyRetryPolicy.Retry);
+		asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyAsyncThreadSafetyMode.None);
+		asyncLazyNoRetry.IsRetryable.ShouldBeFalse();
+		asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyAsyncThreadSafetyMode.PublicationOnly);
+		asyncLazyNoRetry.IsRetryable.ShouldBeFalse();
+
+		var asyncLazyWithRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyAsyncThreadSafetyMode.NoneWithRetry);
 		asyncLazyWithRetry.IsRetryable.ShouldBeTrue();
-		var asyncLazyWithStrictRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyThreadSafetyMode.None, LazyRetryPolicy.StrictRetry);
-		asyncLazyWithStrictRetry.IsRetryable.ShouldBeTrue();
+		asyncLazyWithRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyAsyncThreadSafetyMode.PublicationOnlyWithRetry);
+		asyncLazyWithRetry.IsRetryable.ShouldBeTrue();
+		asyncLazyWithRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry);
+		asyncLazyWithRetry.IsRetryable.ShouldBeTrue();
 	}
 }

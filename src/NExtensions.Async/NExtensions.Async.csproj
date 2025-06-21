@@ -6,4 +6,8 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="NExtensions.UnitTests"/>
+    </ItemGroup>
+
 </Project>
