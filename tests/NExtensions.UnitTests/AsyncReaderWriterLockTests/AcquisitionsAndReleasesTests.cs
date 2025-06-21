@@ -64,7 +64,7 @@ public class AcquisitionsAndReleasesTests
 		// Arrange
 		var rwLock = new AsyncReaderWriterLock();
 		var readerReleaser = await rwLock.ReaderLockAsync();
-		
+
 		// Act && Assert
 		var writerTask = rwLock.WriterLockAsync();
 		writerTask.IsCompleted.ShouldBeFalse("Writer should wait because a reader is active.");

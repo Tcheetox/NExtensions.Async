@@ -24,7 +24,6 @@ public class ThreadingTests
 				var readWatch = new Stopwatch();
 				for (var i = 0; i < readerIterations; i++)
 				{
-					
 					using (await rwLock.ReaderLockAsync())
 					{
 						readWatch.Start();
@@ -35,6 +34,7 @@ public class ThreadingTests
 						readWatch.Stop();
 					}
 				}
+
 				Interlocked.Add(ref readingTicks, readWatch.ElapsedTicks);
 			}));
 
@@ -53,6 +53,7 @@ public class ThreadingTests
 						writeWatch.Stop();
 					}
 				}
+
 				Interlocked.Add(ref writingTicks, writeWatch.ElapsedTicks);
 			}));
 
