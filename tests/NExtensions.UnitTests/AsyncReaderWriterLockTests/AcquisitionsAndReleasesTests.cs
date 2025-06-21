@@ -15,6 +15,7 @@ public class AcquisitionsAndReleasesTests
 		var task = rwLock.ReaderLockAsync();
 		var acquired = task.IsCompletedSuccessfully;
 		var releaser = await task;
+		await rwLock.ReaderLockAsync(); // Another one
 
 		// Assert
 		acquired.ShouldBeTrue();
@@ -58,12 +59,12 @@ public class AcquisitionsAndReleasesTests
 	}
 
 	[Fact]
-	public async Task WriterLockAsync_ShouldQueue_WhenWriterActiveOrReadersExist()
+	public async Task WriterLockAsync_ShouldBeQueued_WhenWriterActiveOrReadersExist()
 	{
 		// Arrange
 		var rwLock = new AsyncReaderWriterLock();
 		var readerReleaser = await rwLock.ReaderLockAsync();
-
+		
 		// Act && Assert
 		var writerTask = rwLock.WriterLockAsync();
 		writerTask.IsCompleted.ShouldBeFalse("Writer should wait because a reader is active.");
