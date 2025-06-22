@@ -10,6 +10,20 @@ namespace NExtensions.UnitTests.AsyncLazyTests;
 public class GeneralTests : NonParallelTests
 {
 	[Fact]
+	public async Task AsyncLazy_CtorOverloads_Matches()
+	{
+		var result = new object();
+		var lazy = new AsyncLazy<object>(() => Task.FromResult(result));
+		var lazyOverload = new AsyncLazy<object>(_ => Task.FromResult(result));
+		
+		var resultViaWaiter = await lazy;
+		resultViaWaiter.ShouldBe(result);
+		var resultViaGetValueAsync = await lazy.GetValueAsync();
+		resultViaGetValueAsync.ShouldBe(result);
+		lazy.IsRetryable.ShouldBe(lazyOverload.IsRetryable);
+	}
+	
+	[Fact]
 	public async Task GetValueAsync_ReturnsTheSameInstance_AsIfDirectlyAwaited()
 	{
 		foreach (var mode in Enum.GetValues<LazyAsyncThreadSafetyMode>())

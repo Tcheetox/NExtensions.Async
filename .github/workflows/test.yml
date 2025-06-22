@@ -2,7 +2,7 @@ name: Run tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "*" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
-    - name: Test
+    - name: Run tests
       run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage"
     - name: Generate coverage report
       run: |

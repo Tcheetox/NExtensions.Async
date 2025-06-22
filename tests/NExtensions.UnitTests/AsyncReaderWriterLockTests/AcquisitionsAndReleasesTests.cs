@@ -138,6 +138,29 @@ public class AcquisitionsAndReleasesTests
 		writerTask2.IsCompletedSuccessfully.ShouldBeTrue();
 		(await writerTask2).Dispose();
 	}
+	
+	[Fact]
+	public async Task WriterLockAsync_ShouldResumeNextReaders_WhenMultipleReadersQueued()
+	{
+		var rwLock = new AsyncReaderWriterLock();
+
+		// First writer acquires the lock
+		var firstWriter = await rwLock.WriterLockAsync();
+
+		// Queue two readers behind (one will expire while in queue)
+		var readerTask1 = rwLock.ReaderLockAsync();
+		var cts = new CancellationTokenSource(30);
+		var readerTask2 = rwLock.ReaderLockAsync(cts.Token);
+		await Task.Delay(100, CancellationToken.None);
+		readerTask1.IsCompleted.ShouldBeFalse();
+		readerTask2.IsCanceled.ShouldBeTrue();
+
+		// Release the first writer, next writer should resume
+		firstWriter.Dispose();
+		readerTask1.IsCompletedSuccessfully.ShouldBeTrue();
+		(await readerTask1).Dispose();
+		cts.Dispose();
+	}
 
 	[Fact]
 	public async Task ReaderLockAsync_ShouldResumeOnly_AfterAllWritersReleased()
