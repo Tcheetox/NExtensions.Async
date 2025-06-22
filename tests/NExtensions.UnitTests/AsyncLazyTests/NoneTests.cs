@@ -20,7 +20,7 @@ public class NoneTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		VoidResult.Counter.ShouldBe(1);
+		VoidResult.GetCounter().ShouldBe(1);
 	}
 
 	[Fact]
@@ -34,7 +34,7 @@ public class NoneTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		CtorException.Counter.ShouldBe(1);
+		CtorException.GetCounter().ShouldBe(1);
 	}
 
 	[Fact]
@@ -48,6 +48,6 @@ public class NoneTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		CtorException.Counter.ShouldBe(1);
+		CtorException.GetCounter().ShouldBe(1);
 	}
 }

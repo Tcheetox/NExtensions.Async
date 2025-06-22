@@ -13,7 +13,6 @@ public enum LazyAsyncThreadSafetyMode
 	ExecutionAndPublicationWithRetry
 }
 
-// TODO: ideally we may want to implements IDisposable on this
 public class AsyncLazy<T>
 {
 	private readonly LazyAsyncThreadSafetyMode _mode;
@@ -50,6 +49,9 @@ public class AsyncLazy<T>
 
 	public Task<T> GetValueAsync(CancellationToken cancellationToken = default)
 	{
+		if (cancellationToken.IsCancellationRequested)
+			return Task.FromCanceled<T>(cancellationToken);
+
 		var current = _value;
 		if (current is not null)
 			return current; // Fast path.
@@ -134,9 +136,8 @@ public class AsyncLazy<T>
 		}
 		catch (Exception ex)
 		{
-			var error = Task.FromException<T>(ex);
 			// Do not store exception when retryable, but check still check if another thread might have succeeded in the meantime.
-			var published = Interlocked.CompareExchange(ref _value, null, null) ?? error;
+			var published = Interlocked.CompareExchange(ref _value, null, null) ?? Task.FromException<T>(ex);
 			Debug.Assert(published.IsCompleted);
 			return await published.ConfigureAwait(false);
 		}

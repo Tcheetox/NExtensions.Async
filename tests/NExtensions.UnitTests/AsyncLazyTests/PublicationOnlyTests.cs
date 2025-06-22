@@ -21,7 +21,7 @@ public class PublicationOnlyTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		VoidResult.Counter.ShouldBe(1);
+		VoidResult.GetCounter().ShouldBe(1);
 	}
 
 	[Fact]
@@ -35,7 +35,7 @@ public class PublicationOnlyTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		CtorException.Counter.ShouldBe(1);
+		CtorException.GetCounter().ShouldBe(1);
 	}
 
 	[Fact]
@@ -59,7 +59,7 @@ public class PublicationOnlyTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		CtorException.Counter.ShouldBeGreaterThanOrEqualTo(1);
+		CtorException.GetCounter().ShouldBeGreaterThanOrEqualTo(1);
 		bag.Count.ShouldBe(attempts);
 		bag.Distinct().Count().ShouldBe(1);
 	}
@@ -78,8 +78,8 @@ public class PublicationOnlyTests : NonParallelTests
 			bag.Add(result);
 		});
 
-		VoidResult.Counter.ShouldBeGreaterThanOrEqualTo(1);
-		VoidResult.Counter.ShouldBeLessThanOrEqualTo(attempts);
+		VoidResult.GetCounter().ShouldBeGreaterThanOrEqualTo(1);
+		VoidResult.GetCounter().ShouldBeLessThanOrEqualTo(attempts);
 		asyncLazy.HasFactory.ShouldBeFalse();
 		bag.Distinct().Count().ShouldBe(1);
 	}
@@ -104,8 +104,8 @@ public class PublicationOnlyTests : NonParallelTests
 			}
 		});
 
-		CtorException.Counter.ShouldBeGreaterThanOrEqualTo(1);
-		CtorException.Counter.ShouldBeLessThanOrEqualTo(attempts);
+		CtorException.GetCounter().ShouldBeGreaterThanOrEqualTo(1);
+		CtorException.GetCounter().ShouldBeLessThanOrEqualTo(attempts);
 		asyncLazy.HasFactory.ShouldBeFalse();
 		bag.Distinct().Count().ShouldBe(1);
 	}

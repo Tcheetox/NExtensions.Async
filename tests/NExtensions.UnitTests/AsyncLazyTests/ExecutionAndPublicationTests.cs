@@ -23,7 +23,9 @@ public class ExecutionAndPublicationTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		VoidResult.Counter.ShouldBe(1);
+		VoidResult.GetCounter().ShouldBe(1);
+		asyncLazy.IsValueCreated.ShouldBeTrue();
+		asyncLazy.IsCompletedSuccessfully.ShouldBeTrue();
 	}
 
 	[Fact]
@@ -37,7 +39,9 @@ public class ExecutionAndPublicationTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		CtorException.Counter.ShouldBe(1);
+		CtorException.GetCounter().ShouldBe(1);
+		asyncLazy.IsValueCreated.ShouldBeTrue();
+		asyncLazy.IsFaulted.ShouldBeTrue();
 	}
 
 	[Fact]
@@ -51,7 +55,7 @@ public class ExecutionAndPublicationTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		CtorException.Counter.ShouldBe(1);
+		CtorException.GetCounter().ShouldBe(1);
 	}
 
 	[Fact]
@@ -68,7 +72,7 @@ public class ExecutionAndPublicationTests : NonParallelTests
 			bag.Add(result);
 		});
 
-		VoidResult.Counter.ShouldBe(1);
+		VoidResult.GetCounter().ShouldBe(1);
 		asyncLazy.HasFactory.ShouldBeFalse();
 		bag.Distinct().Count().ShouldBe(1);
 	}
@@ -93,7 +97,7 @@ public class ExecutionAndPublicationTests : NonParallelTests
 			}
 		});
 
-		CtorException.Counter.ShouldBe(1);
+		CtorException.GetCounter().ShouldBe(1);
 		asyncLazy.HasFactory.ShouldBeFalse();
 		bag.Distinct().Count().ShouldBe(1);
 	}
@@ -117,7 +121,7 @@ public class ExecutionAndPublicationTests : NonParallelTests
 			}
 		});
 
-		CtorException.Counter.ShouldBe(1);
+		CtorException.GetCounter().ShouldBe(1);
 		asyncLazy.HasFactory.ShouldBeFalse();
 		bag.Distinct().Count().ShouldBe(1);
 	}

@@ -20,7 +20,7 @@ public class NoneWithRetryTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		VoidResult.Counter.ShouldBe(1);
+		VoidResult.GetCounter().ShouldBe(1);
 		asyncLazy.HasFactory.ShouldBeFalse();
 	}
 
@@ -36,7 +36,7 @@ public class NoneWithRetryTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeTrue();
 		}
 
-		CtorException.Counter.ShouldBe(attempts);
+		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
 	[Fact]
@@ -51,7 +51,7 @@ public class NoneWithRetryTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeTrue();
 		}
 
-		CtorException.Counter.ShouldBe(attempts);
+		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
 	[Fact]
@@ -73,7 +73,7 @@ public class NoneWithRetryTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeTrue();
 		}
 
-		CtorException.Counter.ShouldBe(attempts);
+		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
 	[Fact]
@@ -91,6 +91,6 @@ public class NoneWithRetryTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeTrue();
 		}
 
-		CtorException.Counter.ShouldBe(attempts);
+		CtorException.GetCounter().ShouldBe(attempts);
 	}
 }

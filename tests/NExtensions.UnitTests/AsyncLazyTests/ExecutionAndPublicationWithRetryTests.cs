@@ -21,7 +21,7 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeFalse();
 		}
 
-		VoidResult.Counter.ShouldBe(1);
+		VoidResult.GetCounter().ShouldBe(1);
 	}
 
 	[Fact]
@@ -36,7 +36,7 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeTrue();
 		}
 
-		CtorException.Counter.ShouldBe(attempts);
+		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
 	[Fact]
@@ -51,7 +51,7 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 			asyncLazy.HasFactory.ShouldBeTrue();
 		}
 
-		CtorException.Counter.ShouldBe(attempts);
+		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
 	[Fact]
@@ -68,7 +68,7 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 			bag.Add(result);
 		});
 
-		VoidResult.Counter.ShouldBe(1);
+		VoidResult.GetCounter().ShouldBe(1);
 		asyncLazy.HasFactory.ShouldBeFalse();
 		bag.Distinct().Count().ShouldBe(1);
 	}
@@ -93,8 +93,8 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 			}
 		});
 
-		CtorException.Counter.ShouldBeGreaterThan(1);
-		CtorException.Counter.ShouldBeLessThanOrEqualTo(attempts);
+		CtorException.GetCounter().ShouldBeGreaterThan(1);
+		CtorException.GetCounter().ShouldBeLessThanOrEqualTo(attempts);
 		asyncLazy.HasFactory.ShouldBeTrue();
 		bag.Distinct().Count().ShouldBe(bag.Count, "Each failure is the result of a new unsuccessful attempt.");
 	}
@@ -118,8 +118,8 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 			}
 		});
 
-		CtorException.Counter.ShouldBeGreaterThan(1);
-		CtorException.Counter.ShouldBeLessThanOrEqualTo(attempts);
+		CtorException.GetCounter().ShouldBeGreaterThan(1);
+		CtorException.GetCounter().ShouldBeLessThanOrEqualTo(attempts);
 		asyncLazy.HasFactory.ShouldBeTrue();
 		bag.Distinct().Count().ShouldBe(bag.Count, "Each failure is the result of a new unsuccessful attempt.");
 	}
