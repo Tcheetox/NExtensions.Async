@@ -11,14 +11,14 @@ namespace NExtensions.Async;
 public sealed class AsyncReaderWriterLock
 {
 	/// <summary>
-	/// Represents the mode used during release: Reader, Writer, or Faulted (e.g., due to cancellation).
+	/// Represents the mode used during release: Reader, Writer, or Cancelled.
 	/// </summary>
 	public enum ReleaseMode
 	{
 		/// <summary>
-		/// Indicates that the lock was released due to a fault (e.g., task cancellation).
+		/// Indicates that the lock was released due to cancellation.
 		/// </summary>
-		Faulted,
+		Cancelled,
 
 		/// <summary>
 		/// Indicates the lock was held and released by a writer.
@@ -111,7 +111,7 @@ public sealed class AsyncReaderWriterLock
 					Debug.Assert(_writerActive);
 					_writerActive = false;
 					break;
-				case ReleaseMode.Faulted:
+				case ReleaseMode.Cancelled:
 					break;
 				default:
 					throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
@@ -233,7 +233,7 @@ public sealed class AsyncReaderWriterLock
 				var self = (Waiter)state!;
 				if (Interlocked.Exchange(ref self._result, 1) == 0)
 				{
-					self._rwLock.Release(ReleaseMode.Faulted); // Release before propagation.
+					self._rwLock.Release(ReleaseMode.Cancelled); // Release before propagation.
 					self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
 				}
 			}, this);

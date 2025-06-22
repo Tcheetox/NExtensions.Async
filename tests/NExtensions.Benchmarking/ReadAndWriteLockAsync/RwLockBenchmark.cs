@@ -5,7 +5,7 @@ using BenchmarkDotNet.Attributes;
 // ReSharper disable MemberCanBeProtected.Global
 namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 
-public abstract class LockingBenchmark
+public abstract class RwLockBenchmark
 {
 	protected ConcurrentBag<Payload> Bag = [];
 
@@ -63,14 +63,6 @@ public abstract class LockingBenchmark
 				return;
 			default:
 				throw new NotImplementedException($"Waiting for {Wait} is not implemented");
-		}
-	}
-
-	// ReSharper disable once MemberCanBePrivate.Global
-	public class InvalidBenchmarkException : Exception
-	{
-		public InvalidBenchmarkException(string message) : base(message)
-		{
 		}
 	}
 

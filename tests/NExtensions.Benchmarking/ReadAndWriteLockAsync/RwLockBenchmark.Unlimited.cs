@@ -9,7 +9,7 @@ namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 [SimpleJob(warmupCount: 3, iterationCount: 10)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
-public class LockingBenchmarkUnlimited : LockingBenchmark
+public class RwLockBenchmarkUnlimited : RwLockBenchmark
 {
 	[Benchmark]
 	public async Task ConcurrentBag()

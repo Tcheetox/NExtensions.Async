@@ -13,7 +13,7 @@ namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 [SimpleJob(warmupCount: 2, iterationCount: 8)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
-public class LockingBenchmarkLimited : LockingBenchmark
+public class RwLockBenchmarkLimited : RwLockBenchmark
 {
 	[Params("1/10", "5/5", "5/10", "10/10", "10/5", "10/1")]
 	public string RW = "1/5";

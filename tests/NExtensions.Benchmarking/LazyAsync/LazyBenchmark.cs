@@ -1,16 +1,23 @@
 ﻿using BenchmarkDotNet.Attributes;
 using NExtensions.Async;
 using AsyncEx = Nito.AsyncEx;
+
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
 
 namespace NExtensions.Benchmarking.LazyAsync;
 
-//[SimpleJob(warmupCount: 3, iterationCount: 10)]
+[SimpleJob(warmupCount: 3, iterationCount: 10)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
 public class LazyBenchmark
 {
+	[Params(1, 5, 20)]
+	public int Parallelism { get; set; } = 1;
+
+	[Params(1, 10, 100)]
+	public int Wait { get; set; } = 1;
+
 	private static async Task<int> GetAfterAsync(int after, CancellationToken token = default)
 	{
 		if (after == 0)
@@ -19,46 +26,34 @@ public class LazyBenchmark
 		return 1;
 	}
 
-	[Params(1, 5, 10)]
-	public int Parallelism { get; set; } = 1;
+	[Benchmark(Baseline = true)]
+	public async Task Lazy_WithExecutionAndPublication()
+	{
+		var lazy = new Lazy<Task<int>>(() => GetAfterAsync(Wait, CancellationToken.None));
+		if (Parallelism == 1)
+		{
+			_ = await lazy.Value;
+			return;
+		}
 
-	[Params(1, 10)]
-	public int Wait { get; set; } = 1;
+		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
+		await Parallel.ForAsync(0, Parallelism, options, async (_, _) => { _ = await lazy.Value; });
+	}
 
-	// [Benchmark(Baseline = true)]
-	// public async Task Lazy_WithExecutionAndPublication()
-	// {
-	// 	var lazy = new Lazy<Task<int>>(() => GetAfterAsync(Wait, CancellationToken.None));
-	// 	if (Parallelism == 1)
-	// 	{
-	// 		_ = await lazy.Value;
-	// 		return;
-	// 	}
-	//
-	// 	var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-	// 	await Parallel.ForAsync(0, Parallelism, options, async (_, _) =>
-	// 	{
-	// 		_ = await lazy.Value;
-	// 	});
-	// }
-	//
-	// [Benchmark]
-	// public async Task AsyncExLazy_WithExecutionAndPublication()
-	// {
-	// 	var lazy = new AsyncEx.AsyncLazy<int>(() => GetAfterAsync(Wait, CancellationToken.None));
-	// 	if (Parallelism == 1)
-	// 	{
-	// 		_ = await lazy;
-	// 		return;
-	// 	}
-	//
-	// 	var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-	// 	await Parallel.ForAsync(0, Parallelism, options, async (_, _) =>
-	// 	{
-	// 		_ = await lazy;
-	// 	});
-	// }
-	//
+	[Benchmark]
+	public async Task AsyncExLazy_WithExecutionAndPublication()
+	{
+		var lazy = new AsyncEx.AsyncLazy<int>(() => GetAfterAsync(Wait, CancellationToken.None));
+		if (Parallelism == 1)
+		{
+			_ = await lazy;
+			return;
+		}
+
+		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
+		await Parallel.ForAsync(0, Parallelism, options, async (_, _) => { _ = await lazy; });
+	}
+
 	[Benchmark]
 	public async Task AsyncLazy_WithExecutionAndPublication()
 	{
@@ -70,12 +65,9 @@ public class LazyBenchmark
 		}
 
 		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, _) =>
-		{
-			_ = await lazy;
-		});
+		await Parallel.ForAsync(0, Parallelism, options, async (_, _) => { _ = await lazy; });
 	}
-	
+
 	[Benchmark]
 	public async Task AsyncLazySlim_WithExecutionAndPublication()
 	{
@@ -87,9 +79,6 @@ public class LazyBenchmark
 		}
 
 		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, _) =>
-		{
-			_ = await lazy;
-		});
+		await Parallel.ForAsync(0, Parallelism, options, async (_, _) => { _ = await lazy; });
 	}
 }

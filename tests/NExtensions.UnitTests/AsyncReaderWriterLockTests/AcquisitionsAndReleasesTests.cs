@@ -97,6 +97,27 @@ public class AcquisitionsAndReleasesTests
 	}
 
 	[Fact]
+	public async Task WriterLockAsync_ShouldSkipCancelledWriters_WhenReleased()
+	{
+		// Arrange
+		const int cancelAfter = 300;
+		var rwLock = new AsyncReaderWriterLock();
+
+		// Act
+		var writer1 = await rwLock.WriterLockAsync();
+		var cts = new CancellationTokenSource(cancelAfter);
+		_ = rwLock.WriterLockAsync(cts.Token).AsTask();
+		var readerTask = rwLock.ReaderLockAsync(CancellationToken.None);
+		await Task.Delay(cancelAfter * 2, CancellationToken.None);
+		writer1.Dispose();
+
+		// Assert
+		readerTask.IsCompleted.ShouldBeTrue();
+		cts.Dispose();
+	}
+
+
+	[Fact]
 	public async Task WriterLockAsync_ShouldResumeNextWriter_WhenMultipleWritersQueued()
 	{
 		var rwLock = new AsyncReaderWriterLock();
