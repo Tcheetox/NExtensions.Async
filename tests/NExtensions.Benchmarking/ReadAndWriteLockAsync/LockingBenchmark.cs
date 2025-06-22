@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using BenchmarkDotNet.Attributes;
 
 // ReSharper disable MemberCanBeProtected.Global
-namespace NExtensions.Benchmarking.Benchmarks;
+namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 
 public abstract class LockingBenchmark
 {

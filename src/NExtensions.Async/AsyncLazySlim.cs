@@ -3,17 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace NExtensions.Async;
 
-public enum LazyAsyncThreadSafetyMode
-{
-	None, // No guarantee, no retry
-	NoneWithRetry, // No guarantee, only success are stored for good
-	PublicationOnly, // Guaranteed same value for every consumer, no retry
-	PublicationOnlyWithRetry,
-	ExecutionAndPublication,
-	ExecutionAndPublicationWithRetry
-}
-
-public class AsyncLazy<T>
+public class AsyncLazySlim<T>
 {
 	private readonly LazyAsyncThreadSafetyMode _mode;
 	private readonly Lazy<SemaphoreSlim> _sync = new(() => new SemaphoreSlim(1, 1));
@@ -21,13 +11,13 @@ public class AsyncLazy<T>
 	private Func<CancellationToken, Task<T>> _factory;
 	private Task<T>? _value;
 
-	public AsyncLazy(Func<Task<T>> valueFactory,
+	public AsyncLazySlim(Func<Task<T>> valueFactory,
 		LazyAsyncThreadSafetyMode mode = LazyAsyncThreadSafetyMode.ExecutionAndPublication)
 		: this(_ => valueFactory(), mode)
 	{
 	}
 
-	public AsyncLazy(Func<CancellationToken, Task<T>> valueFactory,
+	public AsyncLazySlim(Func<CancellationToken, Task<T>> valueFactory,
 		LazyAsyncThreadSafetyMode mode = LazyAsyncThreadSafetyMode.ExecutionAndPublication)
 	{
 		ArgumentNullException.ThrowIfNull(valueFactory);
@@ -68,6 +58,7 @@ public class AsyncLazy<T>
 		};
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private async Task<T> GetNoneAsync(CancellationToken cancellationToken = default)
 	{
 		try
@@ -86,6 +77,7 @@ public class AsyncLazy<T>
 		}
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private async Task<T> GetNoneWithRetryAsync(CancellationToken cancellationToken = default)
 	{
 		try
@@ -103,6 +95,7 @@ public class AsyncLazy<T>
 		}
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private async Task<T> GetPublicationOnlyAsync(CancellationToken cancellationToken = default)
 	{
 		try
@@ -116,7 +109,7 @@ public class AsyncLazy<T>
 			var error = Task.FromException<T>(ex);
 			var published = Interlocked.CompareExchange(ref _value, error, null) ?? error;
 			Debug.Assert(published.IsCompleted);
-			return published.GetAwaiter().GetResult();
+			return await published.ConfigureAwait(false);
 		}
 		finally
 		{
@@ -124,6 +117,7 @@ public class AsyncLazy<T>
 		}
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private async Task<T> GetPublicationOnlyWithRetryAsync(CancellationToken cancellationToken = default)
 	{
 		try
@@ -132,14 +126,14 @@ public class AsyncLazy<T>
 			_ = await local.ConfigureAwait(false);
 			var published = Interlocked.CompareExchange(ref _value, local, null) ?? local;
 			Debug.Assert(published.IsCompletedSuccessfully);
-			return published.Result; // Safe since we must be in a completed state. 
+			return await published.ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{
 			// Do not store exception when retryable, but check still check if another thread might have succeeded in the meantime.
 			var published = Interlocked.CompareExchange(ref _value, null, null) ?? Task.FromException<T>(ex);
 			Debug.Assert(published.IsCompleted);
-			return published.GetAwaiter().GetResult();
+			return await published.ConfigureAwait(false);
 		}
 		finally
 		{
@@ -149,6 +143,7 @@ public class AsyncLazy<T>
 		}
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private async Task<T> GetExecutionAndPublicationAsync(CancellationToken cancellationToken = default)
 	{
 		// No retry policy, do not await within the semaphore to ensure quick release if not awaited directly by the caller.
@@ -173,6 +168,7 @@ public class AsyncLazy<T>
 		return await noRetry.ConfigureAwait(false);
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private async Task<T> GetExecutionAndPublicationWithRetryAsync(CancellationToken cancellationToken = default)
 	{
 		await _sync.Value.WaitAsync(cancellationToken).ConfigureAwait(false);

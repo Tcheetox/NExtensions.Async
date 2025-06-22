@@ -4,7 +4,7 @@ using NExtensions.Async;
 
 // ReSharper disable AccessToDisposedClosure
 
-namespace NExtensions.Benchmarking.Benchmarks;
+namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 
 [SimpleJob(warmupCount: 3, iterationCount: 10)]
 [MemoryDiagnoser]

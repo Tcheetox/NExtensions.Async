@@ -8,7 +8,7 @@ using AsyncReaderWriterLock = Nito.AsyncEx.AsyncReaderWriterLock;
 // ReSharper disable ConvertToConstant.Global
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedMember.Global
-namespace NExtensions.Benchmarking.Benchmarks;
+namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 
 [SimpleJob(warmupCount: 2, iterationCount: 8)]
 [MemoryDiagnoser]
