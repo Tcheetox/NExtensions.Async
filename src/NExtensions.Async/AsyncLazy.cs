@@ -16,7 +16,7 @@ public enum LazyAsyncThreadSafetyMode
 public class AsyncLazy<T>
 {
 	private readonly LazyAsyncThreadSafetyMode _mode;
-	private readonly Lazy<SemaphoreSlim> _sync = new(() => new SemaphoreSlim(1, 1));
+	private readonly AsyncLock _sync = new();
 
 	private Func<CancellationToken, Task<T>> _factory;
 	private Task<T>? _value;
@@ -152,41 +152,37 @@ public class AsyncLazy<T>
 	private async Task<T> GetExecutionAndPublicationAsync(CancellationToken cancellationToken = default)
 	{
 		// No retry policy, do not await within the semaphore to ensure quick release if not awaited directly by the caller.
-		Task<T> noRetry;
-		await _sync.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
-		try
+		Task<T> local;
+		using (await _sync.EnterScopeAsync(cancellationToken))
 		{
-			noRetry = _value ??= _factory(cancellationToken);
-		}
-		catch (Exception ex)
-		{
-			_value ??= Task.FromException<T>(ex);
-			throw;
-		}
-		finally
-		{
-			_factory = null!;
-			_sync.Value.Release();
-			Debug.Assert(_value is not null);
+			try
+			{
+				local = _value ??= _factory(cancellationToken);
+			}
+			catch (Exception ex)
+			{
+				_value ??= Task.FromException<T>(ex);
+				throw;
+			}
+			finally
+			{
+				_factory = null!;
+				Debug.Assert(_value is not null);
+			}
 		}
 
-		return await noRetry.ConfigureAwait(false);
+		return await local.ConfigureAwait(false);
 	}
 
 	private async Task<T> GetExecutionAndPublicationWithRetryAsync(CancellationToken cancellationToken = default)
 	{
-		await _sync.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
-		try
+		using (await _sync.EnterScopeAsync(cancellationToken))
 		{
 			var local = _value ?? _factory(cancellationToken);
 			var result = await local.ConfigureAwait(false);
 			_value = local;
 			_factory = null!;
 			return result;
-		}
-		finally
-		{
-			_sync.Value.Release();
 		}
 	}
 

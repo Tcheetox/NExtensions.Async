@@ -7,7 +7,7 @@ using AsyncEx = Nito.AsyncEx;
 
 namespace NExtensions.Benchmarking.LazyAsync;
 
-[SimpleJob(warmupCount: 3, iterationCount: 10)]
+//[SimpleJob(warmupCount: 3, iterationCount: 10)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
 public class LazyBenchmark
@@ -58,20 +58,6 @@ public class LazyBenchmark
 	public async Task AsyncLazy_WithExecutionAndPublication()
 	{
 		var lazy = new AsyncLazy<int>(() => GetAfterAsync(Wait, CancellationToken.None));
-		if (Parallelism == 1)
-		{
-			_ = await lazy;
-			return;
-		}
-
-		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, _) => { _ = await lazy; });
-	}
-
-	[Benchmark]
-	public async Task AsyncLazySlim_WithExecutionAndPublication()
-	{
-		var lazy = new AsyncLazySlim<int>(() => GetAfterAsync(Wait, CancellationToken.None));
 		if (Parallelism == 1)
 		{
 			_ = await lazy;
