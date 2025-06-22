@@ -3,6 +3,10 @@ using System.Runtime.CompilerServices;
 
 namespace NExtensions.Async;
 
+// TODO: rename methods in rwasynclokc
+// TODO: comments on the below
+// TODO: readme
+// TODO: pipeline
 public enum LazyAsyncThreadSafetyMode
 {
 	None, // No guarantee, no retry

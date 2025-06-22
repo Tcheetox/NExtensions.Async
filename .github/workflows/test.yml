@@ -37,3 +37,8 @@ jobs:
       with:
          name: coverage-report
          path: ./CoverageReport
+    - name: Publish coverage report to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: Tcheetox/NExtensions.Async
