@@ -193,7 +193,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 
 
 				await WaitMeAsync();
-				using (await locker.WriterLockAsync(ct))
+				using (await locker.EnterWriterScopeAsync(ct))
 				{
 					inputs.Add(Payload.Default);
 				}
@@ -211,7 +211,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 			while (read < Count)
 			{
 				await WaitMeAsync();
-				using (await locker.ReaderLockAsync(ct))
+				using (await locker.EnterReaderScopeAsync(ct))
 				{
 					if (!TryTakeLast(inputs, out var payload)) continue;
 					var current = Interlocked.Increment(ref read);

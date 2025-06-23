@@ -93,7 +93,7 @@ public class RwLockBenchmarkUnlimited : RwLockBenchmark
 		var enqueue = Enumerable.Range(0, Count).Select(async _ =>
 		{
 			await WaitMeAsync();
-			using (await locker.WriterLockAsync(canceller.Token))
+			using (await locker.EnterWriterScopeAsync(canceller.Token))
 			{
 				inputs.Add(Payload.Default);
 			}
@@ -105,7 +105,7 @@ public class RwLockBenchmarkUnlimited : RwLockBenchmark
 			while (true)
 			{
 				await WaitMeAsync();
-				using (await locker.ReaderLockAsync(canceller.Token))
+				using (await locker.EnterReaderScopeAsync(canceller.Token))
 				{
 					if (TryTakeLast(inputs, out var payload))
 					{

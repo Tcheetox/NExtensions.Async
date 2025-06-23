@@ -15,14 +15,14 @@ public class GeneralTests : NonParallelTests
 		var result = new object();
 		var lazy = new AsyncLazy<object>(() => Task.FromResult(result));
 		var lazyOverload = new AsyncLazy<object>(_ => Task.FromResult(result));
-		
+
 		var resultViaWaiter = await lazy;
 		resultViaWaiter.ShouldBe(result);
 		var resultViaGetValueAsync = await lazy.GetValueAsync();
 		resultViaGetValueAsync.ShouldBe(result);
 		lazy.IsRetryable.ShouldBe(lazyOverload.IsRetryable);
 	}
-	
+
 	[Fact]
 	public async Task GetValueAsync_ReturnsTheSameInstance_AsIfDirectlyAwaited()
 	{
@@ -47,7 +47,7 @@ public class GeneralTests : NonParallelTests
 	[Fact]
 	public async Task AsyncLazy_MaintainsProperState_OnSuccess()
 	{
-		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None, LazyAsyncThreadSafetyMode.PublicationOnly };
+		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None };
 		foreach (var noRetryMode in noRetryModes)
 		{
 			VoidResult.Reset();
@@ -63,7 +63,7 @@ public class GeneralTests : NonParallelTests
 		}
 
 		var retryModes = new[]
-			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnlyWithRetry, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
+			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnly, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
 		foreach (var retryMode in retryModes)
 		{
 			VoidResult.Reset();
@@ -82,7 +82,7 @@ public class GeneralTests : NonParallelTests
 	[Fact]
 	public async Task AsyncLazy_MaintainsProperState_OnError()
 	{
-		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None, LazyAsyncThreadSafetyMode.PublicationOnly };
+		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None };
 		foreach (var noRetryMode in noRetryModes)
 		{
 			CtorException.Reset();
@@ -98,7 +98,7 @@ public class GeneralTests : NonParallelTests
 		}
 
 		var retryModes = new[]
-			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnlyWithRetry, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
+			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnly, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
 		foreach (var retryMode in retryModes)
 		{
 			CtorException.Reset();
@@ -118,7 +118,7 @@ public class GeneralTests : NonParallelTests
 	[Fact]
 	public async Task AsyncLazy_MaintainsProperState_OnCanceledToken()
 	{
-		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None, LazyAsyncThreadSafetyMode.PublicationOnly };
+		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None };
 		var cancelledToken = new CancellationToken(true);
 		foreach (var noRetryMode in noRetryModes)
 		{
@@ -135,7 +135,7 @@ public class GeneralTests : NonParallelTests
 		}
 
 		var retryModes = new[]
-			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnlyWithRetry, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
+			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnly, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
 		foreach (var retryMode in retryModes)
 		{
 			CtorException.Reset();
@@ -157,7 +157,7 @@ public class GeneralTests : NonParallelTests
 		const int sleep = 50;
 		const int cancelAfter = 20;
 
-		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None, LazyAsyncThreadSafetyMode.PublicationOnly };
+		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None };
 
 		foreach (var noRetryMode in noRetryModes)
 		{
@@ -176,7 +176,7 @@ public class GeneralTests : NonParallelTests
 		}
 
 		var retryModes = new[]
-			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnlyWithRetry, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
+			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnly, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
 		foreach (var retryMode in retryModes)
 		{
 			CtorException.Reset();

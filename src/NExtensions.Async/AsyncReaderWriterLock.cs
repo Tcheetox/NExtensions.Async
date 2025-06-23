@@ -7,7 +7,7 @@ namespace NExtensions.Async;
 /// Provides an asynchronous reader-writer lock supporting multiple concurrent readers
 /// and exclusive writers, with support for cancellation and pooling to reduce <see cref="Waiter"/> allocations.
 /// </summary>
-[DebuggerDisplay("Readers={_readerCount}/{_readerQueue.Count}, Writers={_writerActive}/{_writerQueue.Count}, Pool={_waiterPool.Count}")]
+[DebuggerDisplay("Readers={_readerCount}/{_readerQueue.Count}, Writers={_writerActive}/{_writerQueue.Count}, Pooled={_waiterPool.Count}")]
 public sealed class AsyncReaderWriterLock
 {
 	/// <summary>
@@ -39,13 +39,13 @@ public sealed class AsyncReaderWriterLock
 	private bool _writerActive;
 
 	/// <summary>
-	/// Acquires a reader lock asynchronously. Multiple readers may acquire the lock simultaneously
+	/// Acquires a reader scope asynchronously. Multiple readers may acquire the scope simultaneously
 	/// unless a writer is waiting or active. Can be canceled.
 	/// </summary>
 	/// <param name="cancellationToken">A token to cancel the request.</param>
-	/// <returns>A <see cref="ValueTask{Releaser}"/> that completes when the reader lock is acquired - must be disposed to release subsequent <see cref="Waiter"/>.</returns>
-	/// <exception cref="OperationCanceledException">If the token gets canceled before the lock is acquired.</exception>
-	public ValueTask<Releaser> ReaderLockAsync(CancellationToken cancellationToken = default)
+	/// <returns>A <see cref="ValueTask{Releaser}"/> that completes when the reader scope is acquired - must be disposed to release subsequent <see cref="Waiter"/>.</returns>
+	/// <exception cref="OperationCanceledException">If the token gets canceled before the scope is acquired.</exception>
+	public ValueTask<Releaser> EnterReaderScopeAsync(CancellationToken cancellationToken = default)
 	{
 		if (cancellationToken.IsCancellationRequested)
 			return ValueTask.FromCanceled<Releaser>(cancellationToken);
@@ -67,13 +67,13 @@ public sealed class AsyncReaderWriterLock
 	}
 
 	/// <summary>
-	/// Acquires a writer lock asynchronously. Only one writer can hold the lock,
+	/// Acquires a writer scope asynchronously. Only one writer can hold the scope,
 	/// and it requires exclusive access (no active readers or writers). Can be canceled.
 	/// </summary>
 	/// <param name="cancellationToken">A token to cancel the request.</param>
-	/// <returns>A <see cref="ValueTask{Releaser}"/> that completes when the writer lock is acquired - must be disposed to release subsequent <see cref="Waiter"/>.</returns>
-	/// <exception cref="OperationCanceledException">If the token gets canceled before the lock is acquired.</exception>
-	public ValueTask<Releaser> WriterLockAsync(CancellationToken cancellationToken = default)
+	/// <returns>A <see cref="ValueTask{Releaser}"/> that completes when the writer scope is acquired - must be disposed to release subsequent <see cref="Waiter"/>.</returns>
+	/// <exception cref="OperationCanceledException">If the token gets canceled before the scope is acquired.</exception>
+	public ValueTask<Releaser> EnterWriterScopeAsync(CancellationToken cancellationToken = default)
 	{
 		if (cancellationToken.IsCancellationRequested)
 			return ValueTask.FromCanceled<Releaser>(cancellationToken);

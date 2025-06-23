@@ -10,10 +10,10 @@ public class OrderingTests
 	{
 		var rwLock = new AsyncReaderWriterLock();
 
-		var writer1 = await rwLock.WriterLockAsync();
+		var writer1 = await rwLock.EnterWriterScopeAsync();
 		// Queue two more writers, they should not complete yet
-		var writer2Task = rwLock.WriterLockAsync();
-		var writer3Task = rwLock.WriterLockAsync();
+		var writer2Task = rwLock.EnterWriterScopeAsync();
+		var writer3Task = rwLock.EnterWriterScopeAsync();
 
 		writer2Task.IsCompleted.ShouldBeFalse();
 		writer3Task.IsCompleted.ShouldBeFalse();
@@ -37,9 +37,9 @@ public class OrderingTests
 	{
 		var rwLock = new AsyncReaderWriterLock();
 
-		var reader1 = await rwLock.ReaderLockAsync();
-		var reader2Task = rwLock.ReaderLockAsync();
-		var reader3Task = rwLock.ReaderLockAsync();
+		var reader1 = await rwLock.EnterReaderScopeAsync();
+		var reader2Task = rwLock.EnterReaderScopeAsync();
+		var reader3Task = rwLock.EnterReaderScopeAsync();
 
 		// Assert that these readers have not yet acquired the lock
 		reader2Task.IsCompletedSuccessfully.ShouldBeTrue();
@@ -56,9 +56,9 @@ public class OrderingTests
 	{
 		var rwLock = new AsyncReaderWriterLock();
 
-		var writer = await rwLock.WriterLockAsync();
-		var reader1Task = rwLock.ReaderLockAsync();
-		var reader2Task = rwLock.ReaderLockAsync();
+		var writer = await rwLock.EnterWriterScopeAsync();
+		var reader1Task = rwLock.EnterReaderScopeAsync();
+		var reader2Task = rwLock.EnterReaderScopeAsync();
 
 		// Both readers should be waiting (not completed)
 		reader1Task.IsCompleted.ShouldBeFalse();
@@ -78,15 +78,15 @@ public class OrderingTests
 	public async Task QueuedReader_ShouldBeSkipped_WhenCancelled()
 	{
 		var rwLock = new AsyncReaderWriterLock();
-		var writer = await rwLock.WriterLockAsync();
+		var writer = await rwLock.EnterWriterScopeAsync();
 
 		// Create a cancellation token source and cancel it immediately
 		using var cts = new CancellationTokenSource(TimeSpan.Zero);
-		var cancelledReaderTask = rwLock.ReaderLockAsync(cts.Token);
+		var cancelledReaderTask = rwLock.EnterReaderScopeAsync(cts.Token);
 		cancelledReaderTask.IsCanceled.ShouldBeTrue();
 
 		// Now queue a valid reader that should wait
-		var validReaderTask = rwLock.ReaderLockAsync(CancellationToken.None);
+		var validReaderTask = rwLock.EnterReaderScopeAsync(CancellationToken.None);
 		writer.Dispose();
 		validReaderTask.IsCompletedSuccessfully.ShouldBeTrue();
 		(await validReaderTask).Dispose();
@@ -97,14 +97,14 @@ public class OrderingTests
 	{
 		var rwLock = new AsyncReaderWriterLock();
 
-		var writer1 = await rwLock.WriterLockAsync();
+		var writer1 = await rwLock.EnterWriterScopeAsync();
 		using var cts = new CancellationTokenSource(TimeSpan.Zero);
 
 		// Enqueue a writer with canceled token (should never acquire)
-		var cancelledWriterTask = rwLock.WriterLockAsync(cts.Token);
+		var cancelledWriterTask = rwLock.EnterWriterScopeAsync(cts.Token);
 		cancelledWriterTask.IsCanceled.ShouldBeTrue();
 
-		var writer2Task = rwLock.WriterLockAsync(CancellationToken.None);
+		var writer2Task = rwLock.EnterWriterScopeAsync(CancellationToken.None);
 		writer1.Dispose();
 		writer2Task.IsCompletedSuccessfully.ShouldBeTrue();
 		(await writer2Task).Dispose();
@@ -116,12 +116,12 @@ public class OrderingTests
 		var rwLock = new AsyncReaderWriterLock();
 
 		// Acquire initial reader lock
-		var initialReader = await rwLock.ReaderLockAsync();
+		var initialReader = await rwLock.EnterReaderScopeAsync();
 
 		// Queue a writer, then queue two readers
-		var writerTask = rwLock.WriterLockAsync();
-		var reader1Task = rwLock.ReaderLockAsync();
-		var reader2Task = rwLock.ReaderLockAsync();
+		var writerTask = rwLock.EnterWriterScopeAsync();
+		var reader1Task = rwLock.EnterReaderScopeAsync();
+		var reader2Task = rwLock.EnterReaderScopeAsync();
 
 		// None of the queued tasks should be completed yet
 		writerTask.IsCompleted.ShouldBeFalse();

@@ -24,7 +24,7 @@ public class ThreadingTests
 				var readWatch = new Stopwatch();
 				for (var i = 0; i < readerIterations; i++)
 				{
-					using (await rwLock.ReaderLockAsync())
+					using (await rwLock.EnterReaderScopeAsync())
 					{
 						readWatch.Start();
 						var val1 = sharedCounter;
@@ -45,7 +45,7 @@ public class ThreadingTests
 				var writeWatch = new Stopwatch();
 				for (var i = 0; i < writerIterations; i++)
 				{
-					using (await rwLock.WriterLockAsync())
+					using (await rwLock.EnterWriterScopeAsync())
 					{
 						writeWatch.Start();
 						sharedCounter++;
