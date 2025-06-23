@@ -6,7 +6,7 @@ namespace NExtensions.Async;
 /// <summary>
 /// Represents an asynchronous mutual-exclusion lock. Allows asynchronous code to enter a critical section exclusively.
 /// </summary>
-[DebuggerDisplay("Active={_active}, Waiters={_waiterQueue.Count}, Pooled={_waiterPool.Count}")]
+[DebuggerDisplay("Taken={_active}, Waiters={_waiterQueue.Count}, Pooled={_waiterPool.Count}")]
 public sealed class AsyncLock
 {
 	private readonly object _sync = new();
