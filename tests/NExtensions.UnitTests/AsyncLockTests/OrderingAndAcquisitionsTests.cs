@@ -40,8 +40,9 @@ public class OrderingAndAcquisitionsTests
 			EnterAsync(3)
 		);
 
+		var expected = new[] { 1, 2, 3 };
 		accessLog.Count.ShouldBe(3);
-		accessLog.ShouldBe([1, 2, 3], false);
+		accessLog.ShouldBe(expected);
 		return;
 
 		async Task EnterAsync(int id)
@@ -115,7 +116,7 @@ public class OrderingAndAcquisitionsTests
 		using var cts = new CancellationTokenSource();
 		var waitingTask = asyncLock.EnterScopeAsync(cts.Token);
 
-		await cts.CancelAsync();
+		cts.Cancel();
 		await Should.ThrowAsync<TaskCanceledException>(async () => await waitingTask);
 		scope.Dispose();
 	}
@@ -130,7 +131,7 @@ public class OrderingAndAcquisitionsTests
 		var cancelledWaiter = asyncLock.EnterScopeAsync(cts.Token);
 		var nextWaiter = asyncLock.EnterScopeAsync(CancellationToken.None);
 		nextWaiter.IsCompleted.ShouldBeFalse();
-		await cts.CancelAsync();
+		cts.Cancel();
 		firstScope.Dispose();
 
 		nextWaiter.IsCompletedSuccessfully.ShouldBeTrue();

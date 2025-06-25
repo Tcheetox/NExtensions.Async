@@ -90,7 +90,7 @@ public sealed class AsyncLock
 			_asyncLock = asyncLock;
 		}
 
-		private int _disposed;
+		private int _disposed = 0;
 
 		/// <summary>
 		/// Releases the lock held by this instance.
@@ -101,7 +101,8 @@ public sealed class AsyncLock
 		public void Dispose()
 		{
 			var disposed = Interlocked.Exchange(ref _disposed, 1);
-			ObjectDisposedException.ThrowIf(disposed == 1, this);
+			if (disposed == 1)
+				throw new ObjectDisposedException(GetType().FullName);
 			_asyncLock.Release();
 		}
 	}

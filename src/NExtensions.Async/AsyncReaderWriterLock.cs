@@ -168,7 +168,7 @@ public sealed class AsyncReaderWriterLock
 			_mode = mode;
 		}
 
-		private int _disposed;
+		private int _disposed = 0;
 
 		/// <summary>
 		/// Releases the lock - must only be called once.
@@ -177,7 +177,8 @@ public sealed class AsyncReaderWriterLock
 		public void Dispose()
 		{
 			var disposed = Interlocked.Exchange(ref _disposed, 1);
-			ObjectDisposedException.ThrowIf(disposed == 1, this);
+			if (disposed == 1)
+				throw new ObjectDisposedException(GetType().FullName);
 			_lock.Release(_mode);
 		}
 	}

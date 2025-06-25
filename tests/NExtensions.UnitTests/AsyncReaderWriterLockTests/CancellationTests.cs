@@ -63,7 +63,7 @@ public class CancellationTests
 
 		// Cancel the second reader (the reader should have return directly anyway)
 		reader2Task.IsCompletedSuccessfully.ShouldBeTrue();
-		await cts.CancelAsync(); // It's had no effect since it completed synchronously
+		cts.Cancel(); // It's had no effect since it completed synchronously
 		reader2Task.IsCanceled.ShouldBeFalse();
 		var reader2 = await reader2Task;
 		reader1.Dispose();

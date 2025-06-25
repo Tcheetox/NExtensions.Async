@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using NExtensions.Async;
 using NExtensions.UnitTests.AsyncLazyTests.Shared;
+using NExtensions.UnitTests.Utilities;
 using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncLazyTests;
@@ -62,7 +63,7 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 		var asyncLazy = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(sleep, token), Mode);
 		var bag = new ConcurrentBag<VoidResult>();
 
-		await Parallel.ForAsync(0, attempts, async (_, _) =>
+		await ParallelUtility.ForAsync(0, attempts, async (_, _) =>
 		{
 			var result = await asyncLazy;
 			bag.Add(result);
@@ -81,7 +82,7 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 		var asyncLazy = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(sleep, token), Mode);
 		var bag = new ConcurrentBag<CtorException>();
 
-		await Parallel.ForAsync(0, attempts, async (_, _) =>
+		await ParallelUtility.ForAsync(0, attempts, async (_, _) =>
 		{
 			try
 			{
@@ -106,7 +107,7 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 		var asyncLazy = new AsyncLazy<VoidResult>(_ => CtorException.ThrowsDirectly(), Mode);
 		var bag = new ConcurrentBag<CtorException>();
 
-		await Parallel.ForAsync(0, attempts, async (_, _) =>
+		await ParallelUtility.ForAsync(0, attempts, async (_, _) =>
 		{
 			try
 			{
