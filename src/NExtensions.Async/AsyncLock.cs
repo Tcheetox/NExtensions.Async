@@ -68,7 +68,7 @@ public sealed class AsyncLock
 
 			while (_waiterQueue.TryDequeue(out waiterToWake))
 			{
-				if (waiterToWake.HasResult)
+				if (!waiterToWake.TryReserve())
 					continue;
 				_active = true; // Adjust new state.
 				break;
@@ -123,7 +123,9 @@ public sealed class AsyncLock
 		}
 
 		public short Version => _core.Version;
-		public bool HasResult => _result != 0;
+		
+		[DebuggerBrowsable(DebuggerBrowsableState.Never)]
+		private bool HasResult => _result != 0;
 
 		public Releaser GetResult(short token)
 		{
@@ -148,18 +150,21 @@ public sealed class AsyncLock
 
 		public void SetResult(in Releaser releaser)
 		{
-			if (Interlocked.Exchange(ref _result, 1) == 0)
-			{
-				_core.SetResult(releaser);
-			}
+			Debug.Assert(_result == 1);
+			_core.SetResult(releaser);
 		}
-
+		
+		public bool TryReserve()
+		{
+			return Interlocked.Exchange(ref _result, 1) == 0;
+		}
+		
 		public void SetCancellation(CancellationToken cancellationToken)
 		{
 			_cancellationRegistration = cancellationToken.Register(static state => // This closure must be static to reduce allocation.
 			{
 				var self = (Waiter)state!;
-				if (Interlocked.Exchange(ref self._result, 1) == 0)
+				if (self.TryReserve())
 				{
 					self._asyncLock.Release(true); // Release before propagation.
 					self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
