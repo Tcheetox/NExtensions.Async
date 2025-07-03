@@ -16,4 +16,8 @@
         <ProjectReference Include="..\..\src\NExtensions.Async\NExtensions.Async.csproj"/>
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="BenchmarkDotNet.Artifacts\" />
+    </ItemGroup>
+
 </Project>

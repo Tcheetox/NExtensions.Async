@@ -15,4 +15,18 @@ internal static class ParallelUtility
 		return Parallel.ForEachAsync(range, body);
 #endif
 	}
+
+	public static Task ForAsync(int fromInclusive, int toExclusive, ParallelOptions options, Func<int, CancellationToken, ValueTask> body)
+	{
+#if NET8_0_OR_GREATER
+		return Parallel.ForAsync(fromInclusive, toExclusive, options, body);
+#else
+		ArgumentNullException.ThrowIfNull(body);
+		if (fromInclusive > toExclusive)
+			throw new ArgumentOutOfRangeException(nameof(fromInclusive), $"'{nameof(fromInclusive)}' must be less than or equal to '{nameof(toExclusive)}'.");
+
+		var range = Enumerable.Range(fromInclusive, toExclusive - fromInclusive);
+		return Parallel.ForEachAsync(range, options, body);
+#endif
+	}
 }

@@ -107,7 +107,7 @@ public sealed class AsyncLock
 		}
 	}
 
-	[DebuggerDisplay("HasResult={HasResult}, IsCancelled={_cancellationRegistration.Token.IsCancellationRequested}")]
+	[DebuggerDisplay("Reserved={Reserved}, IsCancelled={_cancellationRegistration.Token.IsCancellationRequested}")]
 	private sealed class Waiter : IValueTaskSource<Releaser>
 	{
 		private readonly AsyncLock _asyncLock;
@@ -115,7 +115,7 @@ public sealed class AsyncLock
 		private CancellationTokenRegistration _cancellationRegistration;
 		private ManualResetValueTaskSourceCore<Releaser> _core; // Continuations are allowed to run synchronously by default, as opposed to our AsyncReaderWriterLock.
 
-		private int _result;
+		private int _reserved;
 
 		public Waiter(AsyncLock asyncLock)
 		{
@@ -123,9 +123,9 @@ public sealed class AsyncLock
 		}
 
 		public short Version => _core.Version;
-		
+
 		[DebuggerBrowsable(DebuggerBrowsableState.Never)]
-		private bool HasResult => _result != 0;
+		private bool Reserved => Volatile.Read(ref _reserved) != 0;
 
 		public Releaser GetResult(short token)
 		{
@@ -133,7 +133,7 @@ public sealed class AsyncLock
 			// Reset the necessary fields before returning to the pool.
 			_cancellationRegistration.Dispose();
 			_core.Reset();
-			_result = 0;
+			_reserved = 0;
 			_asyncLock.Return(this);
 			return result;
 		}
@@ -150,15 +150,15 @@ public sealed class AsyncLock
 
 		public void SetResult(in Releaser releaser)
 		{
-			Debug.Assert(_result == 1);
+			Debug.Assert(Reserved);
 			_core.SetResult(releaser);
 		}
-		
+
 		public bool TryReserve()
 		{
-			return Interlocked.Exchange(ref _result, 1) == 0;
+			return Interlocked.Exchange(ref _reserved, 1) == 0;
 		}
-		
+
 		public void SetCancellation(CancellationToken cancellationToken)
 		{
 			_cancellationRegistration = cancellationToken.Register(static state => // This closure must be static to reduce allocation.

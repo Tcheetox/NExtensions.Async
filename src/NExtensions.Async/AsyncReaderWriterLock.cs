@@ -191,7 +191,8 @@ public sealed class AsyncReaderWriterLock
 
 		private ManualResetValueTaskSourceCore<Releaser> _core = new()
 		{
-			// Ensures no reentrancy and prevents the consumers to hijack the thread.
+			// Helps with reentrancy and prevents the consumers to hijack the thread.
+			// For instance, the latter could prevent some readers to be notified as soon as the writer has finished.
 			RunContinuationsAsynchronously = true
 		};
 

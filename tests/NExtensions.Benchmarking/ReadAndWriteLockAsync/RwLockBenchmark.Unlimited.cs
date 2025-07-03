@@ -17,7 +17,7 @@ public class RwLockBenchmarkUnlimited : RwLockBenchmark
 		var inputs = new ConcurrentBag<Payload>();
 		var enqueue = Enumerable.Range(0, Count).Select(async _ =>
 		{
-			await WaitMeAsync();
+			await Utility.WaitMeAsync(Wait);
 			inputs.Add(Payload.Default);
 		});
 
@@ -26,7 +26,7 @@ public class RwLockBenchmarkUnlimited : RwLockBenchmark
 		{
 			while (true)
 			{
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				if (!TryTakeLast(inputs, out var payload)) continue;
 				var currentRead = Interlocked.Increment(ref read);
 				if (currentRead > Count) break;
@@ -45,7 +45,7 @@ public class RwLockBenchmarkUnlimited : RwLockBenchmark
 		var semaphore = new SemaphoreSlim(1, 1);
 		var enqueue = Enumerable.Range(0, Count).Select(async _ =>
 		{
-			await WaitMeAsync();
+			await Utility.WaitMeAsync(Wait);
 			await semaphore.WaitAsync();
 			try
 			{
@@ -62,7 +62,7 @@ public class RwLockBenchmarkUnlimited : RwLockBenchmark
 		{
 			while (true)
 			{
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				await semaphore.WaitAsync();
 				try
 				{
@@ -92,7 +92,7 @@ public class RwLockBenchmarkUnlimited : RwLockBenchmark
 		var canceller = new CancellationTokenSource();
 		var enqueue = Enumerable.Range(0, Count).Select(async _ =>
 		{
-			await WaitMeAsync();
+			await Utility.WaitMeAsync(Wait);
 			using (await locker.EnterWriterScopeAsync(canceller.Token))
 			{
 				inputs.Add(Payload.Default);
@@ -104,7 +104,7 @@ public class RwLockBenchmarkUnlimited : RwLockBenchmark
 		{
 			while (true)
 			{
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				using (await locker.EnterReaderScopeAsync(canceller.Token))
 				{
 					if (TryTakeLast(inputs, out var payload))

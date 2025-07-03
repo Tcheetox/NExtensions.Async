@@ -42,7 +42,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 		{
 			while (true)
 			{
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				var item = Interlocked.Increment(ref enqueued);
 				if (item > Count)
 					break;
@@ -56,7 +56,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 		{
 			while (true)
 			{
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				if (!TryTakeLast(inputs, out var payload)) continue;
 				var currentRead = Interlocked.Increment(ref read);
 				if (currentRead > Count) break;
@@ -84,7 +84,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 				if (item > Count)
 					break;
 
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				await semaphore.WaitAsync(ct);
 				try
 				{
@@ -103,7 +103,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 		{
 			while (read < Count)
 			{
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				await semaphore.WaitAsync(ct);
 				try
 				{
@@ -141,7 +141,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 				if (item > Count)
 					break;
 
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				using (await locker.WriterLockAsync(ct))
 				{
 					inputs.Add(Payload.Default);
@@ -155,7 +155,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 		{
 			while (read < Count)
 			{
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				using (await locker.ReaderLockAsync(ct))
 				{
 					if (!TryTakeLast(inputs, out var payload)) continue;
@@ -192,7 +192,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 					break;
 
 
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				using (await locker.EnterWriterScopeAsync(ct))
 				{
 					inputs.Add(Payload.Default);
@@ -210,7 +210,7 @@ public class RwLockBenchmarkLimited : RwLockBenchmark
 		{
 			while (read < Count)
 			{
-				await WaitMeAsync();
+				await Utility.WaitMeAsync(Wait);
 				using (await locker.EnterReaderScopeAsync(ct))
 				{
 					if (!TryTakeLast(inputs, out var payload)) continue;

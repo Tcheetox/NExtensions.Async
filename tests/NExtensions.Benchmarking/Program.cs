@@ -1,7 +1,6 @@
 ﻿using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
-using NExtensions.Benchmarking.LazyAsync;
 using NExtensions.Benchmarking.LockAsync;
 using NExtensions.Benchmarking.ReadAndWriteLockAsync;
 using Perfolizer.Horology;
@@ -22,10 +21,11 @@ internal class Program
 				.WithOption(ConfigOptions.DisableLogFile, true)
 				.WithSummaryStyle(SummaryStyle.Default.WithTimeUnit(TimeUnit.Millisecond));
 
-		// BenchmarkRunner.Run<RwLockBenchmarkLimited>(config);
-		// BenchmarkRunner.Run<RwLockBenchmarkUnlimited>(config);
-		// BenchmarkRunner.Run<LazyBenchmark>(config);
-		BenchmarkRunner.Run<LockBenchmark>(config);
+		//	BenchmarkRunner.Run<RwLockBenchmarkLimited>(config);
+		//	BenchmarkRunner.Run<RwLockBenchmarkUnlimited>(config);
+		//	BenchmarkRunner.Run<LazyBenchmark>(config);
+		//	BenchmarkRunner.Run<LockBenchmark>(config);
+		BenchmarkRunner.Run<LockBenchmarkDemo>(config);
 		await ValueTask.CompletedTask;
 	}
 }

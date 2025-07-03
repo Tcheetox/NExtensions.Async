@@ -19,7 +19,7 @@ public class ThreadingTests
 			{
 				Interlocked.Increment(ref concurrentCount);
 				maxConcurrent = Math.Max(maxConcurrent, concurrentCount);
-				
+
 				// Simulate work
 				await Task.Delay(3);
 
@@ -31,11 +31,50 @@ public class ThreadingTests
 
 		maxConcurrent.ShouldBe(1, "AsyncLock should allow only one concurrent entry.");
 	}
-	
+
+	[Fact]
+	public async Task AsyncLock_AllowsOnlySingleEntryConcurrently_WithRandomCancellation()
+	{
+		const int expectedHits = 10_000;
+		var asyncLock = new AsyncLock();
+		var concurrentCount = 0;
+		var maxConcurrent = 0;
+		var totalHits = 0;
+		var random = new Random();
+		var failedHits = 0;
+
+		await ParallelUtility.ForAsync(0, expectedHits, async (_, ct) =>
+		{
+			try
+			{
+				var cancel = random.Next(0, 5);
+				using var cts = new CancellationTokenSource(cancel);
+
+				using (await asyncLock.EnterScopeAsync(cts.Token))
+				{
+					Interlocked.Increment(ref totalHits);
+					Interlocked.Increment(ref concurrentCount);
+					maxConcurrent = Math.Max(maxConcurrent, concurrentCount);
+					await Task.Delay(1, CancellationToken.None);
+					Interlocked.Decrement(ref concurrentCount);
+				}
+			}
+			catch
+			{
+				// Yep.
+				Interlocked.Increment(ref failedHits);
+			}
+		});
+
+		maxConcurrent.ShouldBe(1, "AsyncLock should allow only one concurrent entry.");
+		(failedHits + totalHits).ShouldBe(expectedHits, "All attempts should be either successful or cancelled.");
+		failedHits.ShouldBeGreaterThan(0);
+	}
+
 	[Fact]
 	public async Task AsyncLock_CancelledWaiter_CannotBeTheOneActive()
 	{
-		// This test is not great, it requires a Thread.Sleep() right after _active = true in Release() to reproduce the correct bug.
+		// This test is not great, it requires a Thread.Sleep() right after _reserved = true in Release() to reproduce the correct bug.
 		var asyncLock = new AsyncLock();
 		var cts = new CancellationTokenSource();
 
@@ -47,7 +86,7 @@ public class ThreadingTests
 		var cancel = Task.Run(() => cts.Cancel(), CancellationToken.None);
 
 		await Task.WhenAll(cancel, dispose);
-	
+
 		if (waiterTask.IsCompletedSuccessfully)
 		{
 			await Should.NotThrowAsync(async () => (await waiterTask).Dispose());

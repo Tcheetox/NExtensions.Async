@@ -9,12 +9,12 @@ using AsyncEx = Nito.AsyncEx;
 // ReSharper disable UnusedMember.Global
 namespace NExtensions.Benchmarking.LockAsync;
 
-[SimpleJob(warmupCount: 3, iterationCount: 10)]
+[SimpleJob(warmupCount: 2, iterationCount: 8)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
-public class LockBenchmark
+public class LockBenchmarkDemo
 {
-	[Params(10_000)]
+	[Params(100_000)]
 	public int Count { get; set; } = 100_000;
 
 	[Params(1, 10)]
@@ -23,64 +23,20 @@ public class LockBenchmark
 	[Params("yield", "sync")]
 	public string Wait { get; set; } = "yield";
 
-	private void ThrowIfUnmatched(int count)
-	{
-		var expectedCount = Count * Parallelism;
-		if (expectedCount != count)
-			throw new InvalidBenchmarkException($"Invalid benchmark count, expected {count} to be {expectedCount}");
-	}
-
-	[Benchmark(Baseline = true)]
-	public async Task Lock()
-	{
-		var sync = new object();
-
-		var count = 0;
-		if (Parallelism == 1)
-		{
-			for (var i = 0; i < Count; i++)
-			{
-				await Utility.WaitMeAsync(Wait);
-				lock (sync)
-				{
-					count++;
-				}
-			}
-
-			ThrowIfUnmatched(count);
-			return;
-		}
-
-		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, _) =>
-		{
-			for (var i = 0; i < Count; i++)
-			{
-				await Utility.WaitMeAsync(Wait);
-				lock (sync)
-				{
-					count++;
-				}
-			}
-		});
-		ThrowIfUnmatched(count);
-	}
 
 	[Benchmark]
 	public async Task SemaphoreSlim()
 	{
 		var sync = new SemaphoreSlim(1, 1);
 
-		var count = 0;
 		if (Parallelism == 1)
 		{
 			for (var i = 0; i < Count; i++)
 			{
-				await Utility.WaitMeAsync(Wait);
 				try
 				{
 					await sync.WaitAsync();
-					count++;
+					await Utility.WaitMeAsync(Wait);
 				}
 				finally
 				{
@@ -88,7 +44,6 @@ public class LockBenchmark
 				}
 			}
 
-			ThrowIfUnmatched(count);
 			return;
 		}
 
@@ -97,11 +52,10 @@ public class LockBenchmark
 		{
 			for (var i = 0; i < Count; i++)
 			{
-				await Utility.WaitMeAsync(Wait);
 				try
 				{
 					await sync.WaitAsync(ct);
-					count++;
+					await Utility.WaitMeAsync(Wait);
 				}
 				finally
 				{
@@ -109,7 +63,6 @@ public class LockBenchmark
 				}
 			}
 		});
-		ThrowIfUnmatched(count);
 	}
 
 	[Benchmark]
@@ -117,19 +70,16 @@ public class LockBenchmark
 	{
 		var sync = new AsyncEx.AsyncLock();
 
-		var count = 0;
 		if (Parallelism == 1)
 		{
 			for (var i = 0; i < Count; i++)
 			{
-				await Utility.WaitMeAsync(Wait);
 				using (await sync.LockAsync())
 				{
-					count++;
+					await Utility.WaitMeAsync(Wait);
 				}
 			}
 
-			ThrowIfUnmatched(count);
 			return;
 		}
 
@@ -138,14 +88,12 @@ public class LockBenchmark
 		{
 			for (var i = 0; i < Count; i++)
 			{
-				await Utility.WaitMeAsync(Wait);
 				using (await sync.LockAsync(ct))
 				{
-					count++;
+					await Utility.WaitMeAsync(Wait);
 				}
 			}
 		});
-		ThrowIfUnmatched(count);
 	}
 
 	[Benchmark]
@@ -153,19 +101,16 @@ public class LockBenchmark
 	{
 		var sync = new AsyncLock();
 
-		var count = 0;
 		if (Parallelism == 1)
 		{
 			for (var i = 0; i < Count; i++)
 			{
-				await Utility.WaitMeAsync(Wait);
 				using (await sync.EnterScopeAsync())
 				{
-					count++;
+					await Utility.WaitMeAsync(Wait);
 				}
 			}
 
-			ThrowIfUnmatched(count);
 			return;
 		}
 
@@ -174,13 +119,11 @@ public class LockBenchmark
 		{
 			for (var i = 0; i < Count; i++)
 			{
-				await Utility.WaitMeAsync(Wait);
 				using (await sync.EnterScopeAsync(ct))
 				{
-					count++;
+					await Utility.WaitMeAsync(Wait);
 				}
 			}
 		});
-		ThrowIfUnmatched(count);
 	}
 }

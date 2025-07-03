@@ -49,23 +49,6 @@ public abstract class RwLockBenchmark
 		return item is not null;
 	}
 
-	protected async Task WaitMeAsync()
-	{
-		switch (Wait)
-		{
-			case "yield":
-				await Task.Yield();
-				return;
-			case "delay":
-				await Task.Delay(1);
-				return;
-			case "sync":
-				return;
-			default:
-				throw new NotImplementedException($"Waiting for {Wait} is not implemented");
-		}
-	}
-
 	protected sealed class Payload
 	{
 		public static readonly Payload Default = new(-1);
