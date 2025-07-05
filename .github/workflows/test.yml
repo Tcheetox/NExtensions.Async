@@ -14,18 +14,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Setup .NET 6.0
+    - name: Setup .NET SDKs
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 6.0.x
-    - name: Setup .NET 7.0
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 7.0.x
-    - name: Setup .NET 8.0
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
+        dotnet-version: |
+          6.0.x
+          7.0.x
+          8.0.x
     - name: Setup report generator
       run: dotnet tool install --global dotnet-reportgenerator-globaltool
     - name: Restore dependencies
