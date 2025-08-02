@@ -39,23 +39,21 @@ public class ThreadingTests
 		const int expectedHits = 10_000;
 		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var concurrentCount = 0;
-		var maxConcurrent = 0;
 		var totalHits = 0;
-		var random = new Random();
 		var failedHits = 0;
 
 		await ParallelUtility.ForAsync(0, expectedHits, async (_, _) =>
 		{
 			try
 			{
-				var cancel = random.Next(0, 5);
+				var cancel = Random.Shared.Next(0, 5);
 				using var cts = new CancellationTokenSource(cancel);
 
 				using (await asyncLock.EnterScopeAsync(cts.Token))
 				{
+					var current = Interlocked.Increment(ref concurrentCount);
+					current.ShouldBe(1);
 					Interlocked.Increment(ref totalHits);
-					Interlocked.Increment(ref concurrentCount);
-					maxConcurrent = Math.Max(maxConcurrent, concurrentCount);
 					await Task.Delay(1, CancellationToken.None);
 					Interlocked.Decrement(ref concurrentCount);
 				}
@@ -66,8 +64,7 @@ public class ThreadingTests
 				Interlocked.Increment(ref failedHits);
 			}
 		});
-
-		maxConcurrent.ShouldBe(1, "AsyncLock should allow only one concurrent entry.");
+		
 		(failedHits + totalHits).ShouldBe(expectedHits, "All attempts should be either successful or cancelled.");
 		failedHits.ShouldBeGreaterThan(0);
 	}
