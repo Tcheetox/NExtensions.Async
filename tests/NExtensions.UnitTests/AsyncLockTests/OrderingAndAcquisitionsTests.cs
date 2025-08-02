@@ -1,14 +1,14 @@
-﻿using NExtensions.Async;
-using Shouldly;
+﻿using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncLockTests;
 
 public class OrderingAndAcquisitionsTests
 {
-	[Fact]
-	public async Task EnterScopeAsync_Release_WhenDisposed()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task EnterScopeAsync_Release_WhenDisposed(bool syncContinuation)
 	{
-		var sync = new AsyncLock();
+		var sync = AsyncLockFactory.Create(syncContinuation);
 
 		using (await sync.EnterScopeAsync())
 		{
@@ -19,19 +19,21 @@ public class OrderingAndAcquisitionsTests
 		acquiredSync.IsCompletedSuccessfully.ShouldBeTrue();
 	}
 
-	[Fact]
-	public void EnterScopeAsync_EntersSynchronously_WhenPossible()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public void EnterScopeAsync_EntersSynchronously_WhenPossible(bool syncContinuation)
 	{
-		var sync = new AsyncLock();
+		var sync = AsyncLockFactory.Create(syncContinuation);
 
 		var enterTask = sync.EnterScopeAsync();
 		enterTask.IsCompletedSuccessfully.ShouldBeTrue();
 	}
 
-	[Fact]
-	public async Task EnterScopeAsync_WhenAwaitedSequentially_GrantsAccessInOrder()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task EnterScopeAsync_WhenAwaitedSequentially_GrantsAccessInOrder(bool syncContinuation)
 	{
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var accessLog = new List<int>();
 
 		await Task.WhenAll(
@@ -53,10 +55,11 @@ public class OrderingAndAcquisitionsTests
 		}
 	}
 
-	[Fact]
-	public async Task EnterScopeAsync_WhenMultipleWaiters_GrantsAccessOneAtATime()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task EnterScopeAsync_WhenMultipleWaiters_GrantsAccessOneAtATime(bool syncContinuation)
 	{
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var concurrentAccesses = 0;
 		var maxConcurrentAccesses = 0;
 
@@ -84,10 +87,11 @@ public class OrderingAndAcquisitionsTests
 		}
 	}
 
-	[Fact]
-	public async Task EnterScopeAsync_WhenFirstScopeDisposed_ReleaseNextWaiter()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task EnterScopeAsync_WhenFirstScopeDisposed_ReleaseNextWaiter(bool syncContinuation)
 	{
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 
 		var firstScope = asyncLock.EnterScopeAsync();
 		var secondScope = asyncLock.EnterScopeAsync();
@@ -98,19 +102,21 @@ public class OrderingAndAcquisitionsTests
 		secondScope.IsCompletedSuccessfully.ShouldBeTrue();
 	}
 
-	[Fact]
-	public async Task EnterScopeAsync_WhenCancelledBeforeEntry_ThrowsTaskCanceledException()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task EnterScopeAsync_WhenCancelledBeforeEntry_ThrowsTaskCanceledException(bool syncContinuation)
 	{
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var token = new CancellationToken(true);
 
 		await Should.ThrowAsync<OperationCanceledException>(async () => { await asyncLock.EnterScopeAsync(token); });
 	}
 
-	[Fact]
-	public async Task EnterScopeAsync_WhenCancelledWhileWaiting_ThrowsTaskCanceledException()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task EnterScopeAsync_WhenCancelledWhileWaiting_ThrowsTaskCanceledException(bool syncContinuation)
 	{
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 
 		var scope = await asyncLock.EnterScopeAsync();
 		using var cts = new CancellationTokenSource();
@@ -121,10 +127,11 @@ public class OrderingAndAcquisitionsTests
 		scope.Dispose();
 	}
 
-	[Fact]
-	public async Task EnterScopeAsync_WhenCancelledWhileWaiting_ReleasesNextWaiter()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task EnterScopeAsync_WhenCancelledWhileWaiting_ReleasesNextWaiter(bool syncContinuation)
 	{
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 
 		var firstScope = await asyncLock.EnterScopeAsync();
 		using var cts = new CancellationTokenSource();
@@ -138,10 +145,11 @@ public class OrderingAndAcquisitionsTests
 		await Should.ThrowAsync<TaskCanceledException>(async () => await cancelledWaiter);
 	}
 
-	[Fact]
-	public async Task EnterScopeAsync_WhenDisposedTwice_ThrowsObjectDisposedException()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task EnterScopeAsync_WhenDisposedTwice_ThrowsObjectDisposedException(bool syncContinuation)
 	{
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 
 		var scope = await asyncLock.EnterScopeAsync();
 		scope.Dispose();

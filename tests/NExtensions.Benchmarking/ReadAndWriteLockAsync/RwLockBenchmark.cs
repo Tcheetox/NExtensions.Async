@@ -1,13 +1,21 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using NExtensions.Async;
+using AsyncReaderWriterLockEx = Nito.AsyncEx.AsyncReaderWriterLock;
 
 // ReSharper disable MemberCanBeProtected.Global
 namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 
 public abstract class RwLockBenchmark
 {
-	protected ConcurrentBag<Payload> Bag = [];
+	public enum ContinuationMode
+	{
+		SyncRead,
+		SyncWrite,
+		SyncReadWrite,
+		AsyncReadWrite
+	}
 
 	[Params(100, 10_000)]
 	public virtual int Count { get; set; } = 10_000;
@@ -15,16 +23,37 @@ public abstract class RwLockBenchmark
 	[Params("yield", "delay", "sync")]
 	public virtual string Wait { get; set; } = "delay";
 
-	[IterationSetup]
-	public void IterationSetup()
+	[Params(
+		ContinuationMode.SyncRead,
+		ContinuationMode.SyncReadWrite,
+		ContinuationMode.SyncWrite,
+		ContinuationMode.AsyncReadWrite
+	)]
+	public virtual ContinuationMode Continuation { get; set; } = ContinuationMode.AsyncReadWrite;
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	protected AsyncReaderWriterLockEx GetAsyncReaderWriterLockEx()
 	{
-		Bag = [];
+		if (Continuation != ContinuationMode.AsyncReadWrite)
+			throw new InvalidBenchmarkException("Noop.");
+		return new AsyncReaderWriterLockEx();
 	}
 
-	protected void ThrowIfUnMatched()
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	protected AsyncReaderWriterLock GetAsyncReaderWriterLock()
 	{
-		if (Bag.Count != Count)
-			throw new InvalidBenchmarkException($"Invalid benchmark count, expected {Bag.Count} to be {Count}");
+		switch (Continuation)
+		{
+			case ContinuationMode.SyncRead:
+				return new AsyncReaderWriterLock(true, false);
+			case ContinuationMode.SyncReadWrite:
+				return new AsyncReaderWriterLock(true, true);
+			case ContinuationMode.SyncWrite:
+				return new AsyncReaderWriterLock(false, true);
+			case ContinuationMode.AsyncReadWrite:
+			default:
+				return new AsyncReaderWriterLock();
+		}
 	}
 
 	protected static bool TryTakeLast<T>(IEnumerable<T> enumerable, [NotNullWhen(true)] out T? item) where T : class

@@ -1,15 +1,15 @@
-﻿using NExtensions.Async;
-using Shouldly;
+﻿using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
 
 public class AcquisitionsAndReleasesTests
 {
-	[Fact]
-	public async Task EnterReaderScopeAsync_ShouldAcquireImmediately_WhenNoWriterOrQueuedWriters()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterReaderScopeAsync_ShouldAcquireImmediately_WhenNoWriterOrQueuedWriters(bool syncReader, bool syncWriter)
 	{
 		// Arrange
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// Act
 		var task = rwLock.EnterReaderScopeAsync();
@@ -22,11 +22,12 @@ public class AcquisitionsAndReleasesTests
 		Should.NotThrow(() => releaser.Dispose());
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ShouldAcquireImmediately_WhenNoReadersOrActiveWriter()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldAcquireImmediately_WhenNoReadersOrActiveWriter(bool syncReader, bool syncWriter)
 	{
 		// Arrange
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// Act
 		var task = rwLock.EnterWriterScopeAsync();
@@ -39,11 +40,59 @@ public class AcquisitionsAndReleasesTests
 		Should.NotThrow(() => releaser.Dispose());
 	}
 
-	[Fact]
-	public async Task EnterReaderScopeAsync_ShouldQueue_WhenWriterActiveOrQueuedWritersExist()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldAcquire_ManyTimesNotStackDiveIssue(bool syncReader, bool syncWriter)
 	{
 		// Arrange
-		var rwLock = new AsyncReaderWriterLock();
+		const int toAcquire = 10_000_000;
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
+		var acquired = 0;
+
+		// Act
+		for (var i = 0; i < toAcquire; i++)
+		{
+			using (await rwLock.EnterWriterScopeAsync())
+			{
+				acquired++;
+			}
+		}
+
+		// Assert
+		acquired.ShouldBe(toAcquire);
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldAcquireInParallel_ManyTimesWithoutStackDiveIssue(bool syncReader, bool syncWriter)
+	{
+		// Arrange
+		const int toAcquire = 100_000;
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
+		var acquired = 0;
+
+		// Act
+		var enqueue = Enumerable.Range(0, toAcquire).Select(async _ =>
+		{
+			await Task.Yield();
+			using (await rwLock.EnterWriterScopeAsync(CancellationToken.None))
+			{
+				await Task.Yield();
+				Interlocked.Increment(ref acquired);
+			}
+		});
+		await Task.WhenAll(enqueue);
+
+		// Assert
+		acquired.ShouldBe(toAcquire);
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterReaderScopeAsync_ShouldQueue_WhenWriterActiveOrQueuedWritersExist(bool syncReader, bool syncWriter)
+	{
+		// Arrange
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 		var writerReleaser = await rwLock.EnterWriterScopeAsync();
 
 		// Act
@@ -58,11 +107,12 @@ public class AcquisitionsAndReleasesTests
 		Should.NotThrow(() => readerReleaser.Dispose());
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ShouldBeQueued_WhenWriterActiveOrReadersExist()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldBeQueued_WhenWriterActiveOrReadersExist(bool syncReader, bool syncWriter)
 	{
 		// Arrange
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 		var readerReleaser = await rwLock.EnterReaderScopeAsync();
 
 		// Act && Assert
@@ -75,11 +125,12 @@ public class AcquisitionsAndReleasesTests
 		Should.NotThrow(() => writerReleaser.Dispose());
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ShouldResume_WhenAllReadersReleased()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldResume_WhenAllReadersReleased(bool syncReader, bool syncWriter)
 	{
 		// Arrange
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// Act
 		var reader1 = await rwLock.EnterReaderScopeAsync();
@@ -96,12 +147,13 @@ public class AcquisitionsAndReleasesTests
 		writerReleaser.Dispose();
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ShouldSkipCancelledWriters_WhenReleased()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldSkipCancelledWriters_WhenReleased(bool syncReader, bool syncWriter)
 	{
 		// Arrange
 		const int cancelAfter = 300;
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// Act
 		var writer1 = await rwLock.EnterWriterScopeAsync();
@@ -117,10 +169,11 @@ public class AcquisitionsAndReleasesTests
 	}
 
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ShouldResumeNextWriter_WhenMultipleWritersQueued()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldResumeNextWriter_WhenMultipleWritersQueued(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// First writer acquires the lock
 		var firstWriter = await rwLock.EnterWriterScopeAsync();
@@ -139,10 +192,11 @@ public class AcquisitionsAndReleasesTests
 		(await writerTask2).Dispose();
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ShouldResumeNextReaders_WhenMultipleReadersQueued()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldResumeNextReaders_WhenMultipleReadersQueued(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// First writer acquires the lock
 		var firstWriter = await rwLock.EnterWriterScopeAsync();
@@ -162,10 +216,11 @@ public class AcquisitionsAndReleasesTests
 		cts.Dispose();
 	}
 
-	[Fact]
-	public async Task EnterReaderScopeAsync_ShouldResumeOnly_AfterAllWritersReleased()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterReaderScopeAsync_ShouldResumeOnly_AfterAllWritersReleased(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var writer1 = await rwLock.EnterWriterScopeAsync();
 		var writer2Task = rwLock.EnterWriterScopeAsync();
@@ -177,10 +232,11 @@ public class AcquisitionsAndReleasesTests
 		(await readerTask).Dispose();
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ShouldTakePriority_OverSubsequentReaders()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ShouldTakePriority_OverSubsequentReaders(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// First reader acquires lock immediately
 		var reader1 = await rwLock.EnterReaderScopeAsync();
@@ -195,10 +251,11 @@ public class AcquisitionsAndReleasesTests
 		(await reader2Task).Dispose();
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ThrowsObjectDisposedException_WhenDisposedTwice()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ThrowsObjectDisposedException_WhenDisposedTwice(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var writer = await rwLock.EnterWriterScopeAsync();
 		writer.Dispose();
@@ -206,10 +263,11 @@ public class AcquisitionsAndReleasesTests
 		Should.Throw<ObjectDisposedException>(() => writer.Dispose());
 	}
 
-	[Fact]
-	public async Task EnterReaderScopeAsync_ThrowsObjectDisposedException_WhenDisposedTwice()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterReaderScopeAsync_ThrowsObjectDisposedException_WhenDisposedTwice(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var reader = await rwLock.EnterReaderScopeAsync();
 		reader.Dispose();

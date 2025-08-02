@@ -8,6 +8,7 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="NExtensions.UnitTests"/>
+        <InternalsVisibleTo Include="NExtensions.Benchmarking"/>
     </ItemGroup>
 
 </Project>

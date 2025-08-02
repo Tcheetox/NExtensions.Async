@@ -1,15 +1,15 @@
-﻿using NExtensions.Async;
-using NExtensions.UnitTests.Utilities;
+﻿using NExtensions.UnitTests.Utilities;
 using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncLockTests;
 
 public class ThreadingTests
 {
-	[Fact]
-	public async Task AsyncLock_AllowsOnlySingleEntryConcurrently()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task AsyncLock_AllowsOnlySingleEntryConcurrently(bool syncContinuation)
 	{
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var concurrentCount = 0;
 		var maxConcurrent = 0;
 
@@ -32,18 +32,19 @@ public class ThreadingTests
 		maxConcurrent.ShouldBe(1, "AsyncLock should allow only one concurrent entry.");
 	}
 
-	[Fact]
-	public async Task AsyncLock_AllowsOnlySingleEntryConcurrently_WithRandomCancellation()
+	[Theory]
+	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
+	public async Task AsyncLock_AllowsOnlySingleEntryConcurrently_WithRandomCancellation(bool syncContinuation)
 	{
 		const int expectedHits = 10_000;
-		var asyncLock = new AsyncLock();
+		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var concurrentCount = 0;
 		var maxConcurrent = 0;
 		var totalHits = 0;
 		var random = new Random();
 		var failedHits = 0;
 
-		await ParallelUtility.ForAsync(0, expectedHits, async (_, ct) =>
+		await ParallelUtility.ForAsync(0, expectedHits, async (_, _) =>
 		{
 			try
 			{
@@ -69,34 +70,5 @@ public class ThreadingTests
 		maxConcurrent.ShouldBe(1, "AsyncLock should allow only one concurrent entry.");
 		(failedHits + totalHits).ShouldBe(expectedHits, "All attempts should be either successful or cancelled.");
 		failedHits.ShouldBeGreaterThan(0);
-	}
-
-	[Fact]
-	public async Task AsyncLock_CancelledWaiter_CannotBeTheOneActive()
-	{
-		// This test is not great, it requires a Thread.Sleep() right after _reserved = true in Release() to reproduce the correct bug.
-		var asyncLock = new AsyncLock();
-		var cts = new CancellationTokenSource();
-
-		var releaser1 = await asyncLock.EnterScopeAsync(CancellationToken.None);
-		var waiterTask = asyncLock.EnterScopeAsync(cts.Token).AsTask();
-		var nextTaker = asyncLock.EnterScopeAsync(CancellationToken.None);
-
-		var dispose = Task.Run(() => releaser1.Dispose(), CancellationToken.None);
-		var cancel = Task.Run(() => cts.Cancel(), CancellationToken.None);
-
-		await Task.WhenAll(cancel, dispose);
-
-		if (waiterTask.IsCompletedSuccessfully)
-		{
-			await Should.NotThrowAsync(async () => (await waiterTask).Dispose());
-		}
-		else
-		{
-			waiterTask.IsCanceled.ShouldBeTrue();
-		}
-
-		nextTaker.IsCompletedSuccessfully.ShouldBeTrue();
-		cts.Dispose();
 	}
 }

@@ -1,14 +1,14 @@
-﻿using NExtensions.Async;
-using Shouldly;
+﻿using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
 
 public class OrderingTests
 {
-	[Fact]
-	public async Task QueuedWriters_ShouldBeServed_InFIFOOrder()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task QueuedWriters_ShouldBeServed_InFIFOOrder(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var writer1 = await rwLock.EnterWriterScopeAsync();
 		// Queue two more writers, they should not complete yet
@@ -32,10 +32,11 @@ public class OrderingTests
 		writer3.Dispose();
 	}
 
-	[Fact]
-	public async Task QueuedReaders_ShouldBeServedTogether_WhenNoWritersWaiting()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task QueuedReaders_ShouldBeServedTogether_WhenNoWritersWaiting(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var reader1 = await rwLock.EnterReaderScopeAsync();
 		var reader2Task = rwLock.EnterReaderScopeAsync();
@@ -51,10 +52,11 @@ public class OrderingTests
 		(await reader3Task).Dispose();
 	}
 
-	[Fact]
-	public async Task QueuedReaders_ShouldBeServedTogether_AfterWriterReleases()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task QueuedReaders_ShouldBeServedTogether_AfterWriterReleases(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var writer = await rwLock.EnterWriterScopeAsync();
 		var reader1Task = rwLock.EnterReaderScopeAsync();
@@ -74,10 +76,11 @@ public class OrderingTests
 		(await reader2Task).Dispose();
 	}
 
-	[Fact]
-	public async Task QueuedReader_ShouldBeSkipped_WhenCancelled()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task QueuedReader_ShouldBeSkipped_WhenCancelled(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 		var writer = await rwLock.EnterWriterScopeAsync();
 
 		// Create a cancellation token source and cancel it immediately
@@ -92,10 +95,11 @@ public class OrderingTests
 		(await validReaderTask).Dispose();
 	}
 
-	[Fact]
-	public async Task QueuedWriter_ShouldBeSkipped_WhenCancelled()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task QueuedWriter_ShouldBeSkipped_WhenCancelled(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var writer1 = await rwLock.EnterWriterScopeAsync();
 		using var cts = new CancellationTokenSource(TimeSpan.Zero);
@@ -110,13 +114,16 @@ public class OrderingTests
 		(await writer2Task).Dispose();
 	}
 
-	[Fact]
-	public async Task QueuedWriter_ShouldBeServed_BeforeSubsequentReaders()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task QueuedWriter_ShouldBeServed_BeforeSubsequentReaders(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// Acquire initial reader lock
 		var initialReader = await rwLock.EnterReaderScopeAsync();
+		var secondReader = rwLock.EnterReaderScopeAsync();
+		secondReader.IsCompletedSuccessfully.ShouldBeTrue();
 
 		// Queue a writer, then queue two readers
 		var writerTask = rwLock.EnterWriterScopeAsync();
@@ -124,6 +131,7 @@ public class OrderingTests
 		var reader2Task = rwLock.EnterReaderScopeAsync();
 
 		// None of the queued tasks should be completed yet
+		(await secondReader).Dispose();
 		writerTask.IsCompleted.ShouldBeFalse();
 		reader1Task.IsCompleted.ShouldBeFalse();
 		reader2Task.IsCompleted.ShouldBeFalse();

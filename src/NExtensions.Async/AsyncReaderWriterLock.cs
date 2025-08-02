@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Threading.Tasks.Sources;
+using NExtensions.Async.Collections;
 
 namespace NExtensions.Async;
 
@@ -11,15 +12,10 @@ namespace NExtensions.Async;
 public sealed class AsyncReaderWriterLock
 {
 	/// <summary>
-	/// Represents the mode used during release: Reader, Writer, or Cancelled.
+	/// Release mode; reader or writer.
 	/// </summary>
 	public enum ReleaseMode
 	{
-		/// <summary>
-		/// Indicates that the lock was released due to cancellation.
-		/// </summary>
-		Cancelled,
-
 		/// <summary>
 		/// Indicates the lock was held and released by a writer.
 		/// </summary>
@@ -31,12 +27,41 @@ public sealed class AsyncReaderWriterLock
 		Reader
 	}
 
-	private readonly Queue<Waiter> _readerQueue = new();
+	private readonly bool _allowSynchronousReaderContinuations;
+	private readonly bool _allowSynchronousWriterContinuations;
+	private readonly Deque<Waiter> _readerQueue = new(deepClear: false);
+
 	private readonly object _sync = new();
 	private readonly Stack<Waiter> _waiterPool = new();
-	private readonly Queue<Waiter> _writerQueue = new();
+	private readonly Deque<Waiter> _writerQueue = new(deepClear: false);
 	private int _readerCount;
 	private bool _writerActive;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="AsyncReaderWriterLock"/> class
+	/// with the default behavior that disallows synchronous continuations
+	/// for both readers and writers.
+	/// </summary>
+	public AsyncReaderWriterLock()
+	{
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="AsyncReaderWriterLock"/> class
+	/// with options to allow synchronous continuations for readers and writers.
+	/// </summary>
+	/// <param name="allowSynchronousReaderContinuations">
+	/// If set to <c>true</c>, allows synchronous continuations for reader operations.
+	/// </param>
+	/// <param name="allowSynchronousWriterContinuations">
+	/// If set to <c>true</c>, allows synchronous continuations for writer operations.
+	/// </param>
+	/// <remarks>Both options can significantly improve performance, but introduce additional risks such as reentrancy or stack dive.</remarks>
+	public AsyncReaderWriterLock(bool allowSynchronousReaderContinuations, bool allowSynchronousWriterContinuations)
+	{
+		_allowSynchronousReaderContinuations = allowSynchronousReaderContinuations;
+		_allowSynchronousWriterContinuations = allowSynchronousWriterContinuations;
+	}
 
 	/// <summary>
 	/// Acquires a reader scope asynchronously. Multiple readers may acquire the scope simultaneously
@@ -58,10 +83,10 @@ public sealed class AsyncReaderWriterLock
 				return new ValueTask<Releaser>(new Releaser(this, ReleaseMode.Reader));
 			}
 
-			var waiter = Rent();
+			var waiter = Rent(ReleaseMode.Reader);
 			if (cancellationToken.CanBeCanceled)
 				waiter.SetCancellation(cancellationToken);
-			_readerQueue.Enqueue(waiter);
+			_readerQueue.AddLast(waiter);
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
@@ -86,32 +111,48 @@ public sealed class AsyncReaderWriterLock
 				return new ValueTask<Releaser>(new Releaser(this, ReleaseMode.Writer));
 			}
 
-			var waiter = Rent();
+			var waiter = Rent(ReleaseMode.Writer);
 			if (cancellationToken.CanBeCanceled) // Avoid binding useless tokens.
 				waiter.SetCancellation(cancellationToken);
-			_writerQueue.Enqueue(waiter);
+			_writerQueue.AddLast(waiter);
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
 
-	private void Release(ReleaseMode mode)
+	private void Release(ReleaseMode mode, Waiter? cancelledWaiter = null)
 	{
 		Waiter? writerToWake = null;
-		List<Waiter>? readersToWake = null;
+		Waiter[]? readersToWake = null;
 
 		lock (_sync)
 		{
 			switch (mode)
 			{
 				case ReleaseMode.Reader:
-					_readerCount--;
-					Debug.Assert(_readerCount >= 0);
+					if (cancelledWaiter is null)
+					{
+						_readerCount--;
+						Debug.Assert(_readerCount >= 0);
+					}
+					else if (!_readerQueue.Remove(cancelledWaiter))
+					{
+						Debug.Assert(_readerCount > 0, "Because reader cancellation won the race against SetResult while in-flight.");
+						_readerCount--;
+					}
+
 					break;
 				case ReleaseMode.Writer:
-					Debug.Assert(_writerActive);
-					_writerActive = false;
-					break;
-				case ReleaseMode.Cancelled:
+					if (cancelledWaiter is null)
+					{
+						Debug.Assert(_writerActive);
+						_writerActive = false;
+					}
+					else if (!_writerQueue.Remove(cancelledWaiter))
+					{
+						Debug.Assert(_writerActive, "Because writer cancellation won the race against SetResult while in-flight.");
+						_writerActive = false;
+					}
+
 					break;
 				default:
 					throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
@@ -121,40 +162,37 @@ public sealed class AsyncReaderWriterLock
 				return; // Early exit.
 
 			// Attempt to get a writer.
-			if (_readerCount == 0)
+			if (_readerCount == 0 && _writerQueue.TryRemoveFirst(out writerToWake))
 			{
-				while (_writerQueue.TryDequeue(out writerToWake))
-				{
-					if (writerToWake.HasResult)
-						continue;
-					_writerActive = true;
-					break;
-				}
+				_writerActive = true;
 			}
-
-			// Check for readers if no writers.
-			if (writerToWake is null && _readerQueue.Count > 0)
+			else if (_writerQueue.Count == 0 && _readerQueue.Count > 0)
 			{
 				Debug.Assert(!_writerActive, "Cannot have an active writer when about to wake readers.");
-				readersToWake = new List<Waiter>(_readerQueue.Count);
-				while (_readerQueue.TryDequeue(out var waiter) && !waiter.HasResult) // Dismiss waiters which have canceled.
-					readersToWake.Add(waiter);
-				_readerCount += readersToWake.Count; // Readers about to pick up (outside the lock).
+				readersToWake = new Waiter[_readerQueue.Count];
+				_readerQueue.CopyTo(readersToWake);
+				_readerQueue.Clear();
+				_readerCount += readersToWake.Length; // Readers about to pick up (outside the lock).
 			}
 		}
 
 		Debug.Assert(writerToWake == null || readersToWake == null, "Cannot wake both writer and readers simultaneously.");
 
-		// Do not call SetResult in the lock to reduce potential contentions.
-		writerToWake?.SetResult(new Releaser(this, ReleaseMode.Writer));
-		if (readersToWake == null) return;
+		// Do not call SetResult in the lock to reduce contention, and protect it from synchronous continuations.
+		if (writerToWake is not null)
+		{
+			writerToWake.SetResult(new Releaser(this, ReleaseMode.Writer));
+			return;
+		}
+
+		if (readersToWake is null) return;
 		foreach (var reader in readersToWake)
 			reader.SetResult(new Releaser(this, ReleaseMode.Reader));
 	}
 
 	/// <summary>
 	/// Represents a releasable struct handle to the reader or writer lock.
-	/// Releasing the handle returns the lock and wakes up waiting operations.
+	/// Releasing the handle returns the lock and wakes up waiting operations if any.
 	/// </summary>
 	[DebuggerDisplay("Mode={_mode}")]
 	public struct Releaser : IDisposable
@@ -171,7 +209,7 @@ public sealed class AsyncReaderWriterLock
 		private int _disposed = 0;
 
 		/// <summary>
-		/// Releases the lock - must only be called once.
+		/// Releases the associated lock once.
 		/// </summary>
 		/// <exception cref="ObjectDisposedException">If called multiple times.</exception>
 		public void Dispose()
@@ -183,19 +221,14 @@ public sealed class AsyncReaderWriterLock
 		}
 	}
 
-	[DebuggerDisplay("HasResult={HasResult}, IsCancelled={_cancellationRegistration.Token.IsCancellationRequested}")]
+	[DebuggerDisplay("Mode={_mode}, HasResult={HasResult}, IsCancelled={_cancellationRegistration.Token.IsCancellationRequested}")]
 	private sealed class Waiter : IValueTaskSource<Releaser>
 	{
 		private readonly AsyncReaderWriterLock _rwLock;
+
 		private CancellationTokenRegistration _cancellationRegistration;
-
-		private ManualResetValueTaskSourceCore<Releaser> _core = new()
-		{
-			// Helps with reentrancy and prevents the consumers to hijack the thread.
-			// For instance, the latter could prevent some readers to be notified as soon as the writer has finished.
-			RunContinuationsAsynchronously = true
-		};
-
+		private ManualResetValueTaskSourceCore<Releaser> _core;
+		private ReleaseMode _mode;
 		private int _result;
 
 		public Waiter(AsyncReaderWriterLock rwLock)
@@ -205,7 +238,8 @@ public sealed class AsyncReaderWriterLock
 
 		public short Version => _core.Version;
 
-		public bool HasResult => _result != 0;
+		[DebuggerBrowsable(DebuggerBrowsableState.Never)]
+		private bool HasResult => Volatile.Read(ref _result) == 1;
 
 		public ValueTaskSourceStatus GetStatus(short token)
 		{
@@ -215,10 +249,12 @@ public sealed class AsyncReaderWriterLock
 		public Releaser GetResult(short token)
 		{
 			var result = _core.GetResult(token);
-			// Reset the necessary fields before returning to the pool.
+			// If the target callback is currently executing, this method will wait until it completes.
+			// Hence, we are safe to assume we cannot cancel the wrong target and return to the pool.
 			_cancellationRegistration.Dispose();
+			// Reset the necessary fields before returning to the pool.
 			_core.Reset();
-			_result = 0;
+			Volatile.Write(ref _result, 0);
 			_rwLock.Return(this);
 			return result;
 		}
@@ -228,6 +264,20 @@ public sealed class AsyncReaderWriterLock
 			_core.OnCompleted(continuation, state, token, flags);
 		}
 
+		public void SetMode(ReleaseMode mode)
+		{
+			_mode = mode;
+			// The safe default is asynchronous continuations.
+			// It helps with reentrancy and prevents the consumers to hijack the thread.
+			// For instance, the latter could prevent some readers to be notified as soon as the writer has finished.
+			_core.RunContinuationsAsynchronously = mode switch
+			{
+				ReleaseMode.Writer => !_rwLock._allowSynchronousWriterContinuations,
+				ReleaseMode.Reader => !_rwLock._allowSynchronousReaderContinuations,
+				_ => true
+			};
+		}
+
 		public void SetCancellation(CancellationToken cancellationToken)
 		{
 			_cancellationRegistration = cancellationToken.Register(static state => // This closure must be static to reduce allocation.
@@ -235,10 +285,10 @@ public sealed class AsyncReaderWriterLock
 				var self = (Waiter)state!;
 				if (Interlocked.Exchange(ref self._result, 1) == 0)
 				{
-					self._rwLock.Release(ReleaseMode.Cancelled); // Release before propagation.
+					self._rwLock.Release(self._mode, self); // Release before propagation.
 					self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
 				}
-			}, this);
+			}, this, false);
 		}
 
 		public void SetResult(in Releaser releaser)
@@ -252,11 +302,12 @@ public sealed class AsyncReaderWriterLock
 
 	#region Pooling
 
-	private Waiter Rent()
+	private Waiter Rent(ReleaseMode mode)
 	{
 		// This method must be called within the main lock.
 		if (!_waiterPool.TryPop(out var waiter))
 			waiter = new Waiter(this);
+		waiter.SetMode(mode);
 		return waiter;
 	}
 

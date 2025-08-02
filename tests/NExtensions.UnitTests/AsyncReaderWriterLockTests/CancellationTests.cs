@@ -1,14 +1,15 @@
-﻿using NExtensions.Async;
+﻿using NExtensions.UnitTests.Utilities;
 using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
 
 public class CancellationTests
 {
-	[Fact]
-	public async Task EnterReaderScopeAsync_DoesNotBlockQueuedWriter_WhenCancelledOnEnqueue()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterReaderScopeAsync_DoesNotBlockQueuedWriter_WhenCancelledOnEnqueue(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		using var cts = new CancellationTokenSource(TimeSpan.Zero);
 		var reader = rwLock.EnterReaderScopeAsync(cts.Token);
@@ -20,10 +21,11 @@ public class CancellationTests
 		(await writerTask).Dispose();
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_DoesNotBlockQueuedWriter_WhenCancelledOnEnqueue()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_DoesNotBlockQueuedWriter_WhenCancelledOnEnqueue(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		using var cts = new CancellationTokenSource(TimeSpan.Zero);
 		var writer = rwLock.EnterWriterScopeAsync(cts.Token);
@@ -35,10 +37,11 @@ public class CancellationTests
 		(await writerTask).Dispose();
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_DoesNotBlockQueuedReader_WhenCancelledOnEnqueue()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_DoesNotBlockQueuedReader_WhenCancelledOnEnqueue(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		using var cts = new CancellationTokenSource(TimeSpan.Zero);
 		var writer = rwLock.EnterWriterScopeAsync(cts.Token);
@@ -50,10 +53,11 @@ public class CancellationTests
 		(await readerTask).Dispose();
 	}
 
-	[Fact]
-	public async Task EnterReaderScopeAsync_ReleaseQueuedWriter_WhenCancelledThenDisposedWhileEnqueued()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterReaderScopeAsync_ReleaseQueuedWriter_WhenCancelledThenDisposedWhileEnqueued(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var reader1 = await rwLock.EnterReaderScopeAsync();
 
@@ -74,10 +78,11 @@ public class CancellationTests
 		Should.NotThrow(() => writer.Dispose());
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ReleaseQueuedWriter_WhenCancelledWhileEnqueued()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ReleaseQueuedWriter_WhenCancelledWhileEnqueued(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 		var reader1 = await rwLock.EnterReaderScopeAsync();
 		using var cts = new CancellationTokenSource(30);
 		cts.Token.Register(() => reader1.Dispose());
@@ -89,10 +94,11 @@ public class CancellationTests
 		writer2.IsCompletedSuccessfully.ShouldBeTrue("The cancelled writer must have released the enqueued writer");
 	}
 
-	[Fact]
-	public async Task EnterWriterScopeAsync_ReleaseQueuedReader_WhenCancelledWhileEnqueued()
+	[Theory]
+	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
+	public async Task EnterWriterScopeAsync_ReleaseQueuedReader_WhenCancelledWhileEnqueued(bool syncReader, bool syncWriter)
 	{
-		var rwLock = new AsyncReaderWriterLock();
+		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var reader1 = await rwLock.EnterReaderScopeAsync();
 		using var cts = new CancellationTokenSource(30);
@@ -103,5 +109,53 @@ public class CancellationTests
 		reader2.IsCompletedSuccessfully.ShouldBeTrue("The cancelled writer must have released the enqueued readers");
 		await Should.ThrowAsync<OperationCanceledException>(async () => await writerLock);
 		reader1.Dispose();
+	}
+
+	[Fact]
+	public async Task EnterWriterScopeAsync_ReleaseQueuedReader_WhenCancelledWhileAboutToRun()
+	{
+		await ParallelUtility.ForAsync(0, 100, async (_, _) =>
+		{
+			for (var i = 0; i < 100; i++)
+			{
+				var rwLock = AsyncReaderWriterLockFactory.Create(false, false);
+				var reader1 = await rwLock.EnterReaderScopeAsync(CancellationToken.None);
+				using var preCts = new CancellationTokenSource(30);
+				using var cts = new CancellationTokenSource(i);
+				preCts.Token.Register(() => Should.NotThrow(() => reader1.Dispose()));
+				var writer = rwLock.EnterWriterScopeAsync(cts.Token);
+				var reader2 = rwLock.EnterReaderScopeAsync(CancellationToken.None);
+
+				try
+				{
+					await writer;
+					reader2.IsCompletedSuccessfully.ShouldBeFalse();
+				}
+				catch
+				{
+					reader2.IsCompletedSuccessfully.ShouldBeTrue();
+				}
+			}
+		});
+	}
+
+	[Fact]
+	public async Task EnterReaderScopeAsync_ReleaseQueuedWriter_WhenCancelledWhileAboutToRun()
+	{
+		await ParallelUtility.ForAsync(0, 100, async (_, _) =>
+		{
+			for (var i = 0; i < 100; i++)
+			{
+				var rwLock = AsyncReaderWriterLockFactory.Create(false, false);
+				var writer1 = await rwLock.EnterWriterScopeAsync(CancellationToken.None);
+				using var preCts = new CancellationTokenSource(30);
+				using var cts = new CancellationTokenSource(i);
+				preCts.Token.Register(() => Should.NotThrow(() => writer1.Dispose()));
+				var reader1 = rwLock.EnterReaderScopeAsync(cts.Token);
+				var writer2 = rwLock.EnterWriterScopeAsync(CancellationToken.None);
+				await Should.NotThrowAsync(async () => await writer2);
+				reader1.IsFaulted.ShouldBeFalse();
+			}
+		});
 	}
 }

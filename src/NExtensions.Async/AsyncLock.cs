@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Threading.Tasks.Sources;
+using NExtensions.Async.Collections;
 
 namespace NExtensions.Async;
 
@@ -9,11 +10,34 @@ namespace NExtensions.Async;
 [DebuggerDisplay("Taken={_active}, Waiters={_waiterQueue.Count}, Pooled={_waiterPool.Count}")]
 public sealed class AsyncLock
 {
+	private readonly bool _allowSynchronousContinuations;
 	private readonly object _sync = new();
 	private readonly Stack<Waiter> _waiterPool = new();
-	private readonly Queue<Waiter> _waiterQueue = new();
+	private readonly Deque<Waiter> _waiterQueue = new(deepClear: false);
 
 	private bool _active;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="AsyncLock"/> class
+	/// with the default behavior that disallows synchronous continuations.
+	/// </summary>
+	public AsyncLock()
+	{
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="AsyncLock"/> class,
+	/// optionally allowing continuations to run synchronously when the lock is released.
+	/// </summary>
+	/// <param name="allowSynchronousContinuations">
+	/// If <c>true</c>, continuations after acquiring the lock may run synchronously.
+	/// If <c>false</c>, continuations will always run asynchronously.
+	/// </param>
+	/// <remarks>Synchronous continuations can significantly improve performance, but introduce additional risks such as reentrancy or stack dive.</remarks>
+	public AsyncLock(bool allowSynchronousContinuations)
+	{
+		_allowSynchronousContinuations = allowSynchronousContinuations;
+	}
 
 	/// <summary>
 	/// Asynchronously waits to enter the lock and returns a <see cref="Releaser"/> struct that releases the lock when disposed.
@@ -42,39 +66,27 @@ public sealed class AsyncLock
 			var waiter = Rent();
 			if (cancellationToken.CanBeCanceled)
 				waiter.SetCancellation(cancellationToken);
-			_waiterQueue.Enqueue(waiter);
+			_waiterQueue.AddLast(waiter);
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
 
-	private void Release(bool cancelled = false)
+	private void Release(Waiter? cancelledWaiter = null)
 	{
 		Waiter? waiterToWake;
 
 		lock (_sync)
 		{
-			if (cancelled)
-			{
-				if (_active)
-					return; // Early exit.
-			}
-			else
-			{
-				Debug.Assert(_active);
-				_active = false;
-			}
-
-			Debug.Assert(!_active);
-
-			while (_waiterQueue.TryDequeue(out waiterToWake))
-			{
-				if (!waiterToWake.TryReserve())
-					continue;
-				_active = true; // Adjust new state.
-				break;
-			}
+			Debug.Assert(_active, "Release called only when the lock is currently held, even if cancelled.");
+			// Either the waiter was not cancelled (thus attempt to wake the next waiter in line), or it was cancelled.
+			// In the latter case, if the cancelled waiter is in the queue and can be removed it means there's still a legit lock holder.
+			// Otherwise, it means the waiter was scheduled to acquire the lock but the SetException won the race, hence wake up the next waiter.
+			if (cancelledWaiter is not null && _waiterQueue.Remove(cancelledWaiter))
+				return;
+			_active = _waiterQueue.TryRemoveFirst(out waiterToWake);
 		}
 
+		Debug.Assert(waiterToWake is not null == _active, "Invalid state: _active must match waiter presence.");
 		waiterToWake?.SetResult(new Releaser(this));
 	}
 
@@ -107,33 +119,33 @@ public sealed class AsyncLock
 		}
 	}
 
-	[DebuggerDisplay("Reserved={Reserved}, IsCancelled={_cancellationRegistration.Token.IsCancellationRequested}")]
+	[DebuggerDisplay("HasResult={HasResult}, IsCancelled={_cancellationRegistration.Token.IsCancellationRequested}")]
 	private sealed class Waiter : IValueTaskSource<Releaser>
 	{
 		private readonly AsyncLock _asyncLock;
 
 		private CancellationTokenRegistration _cancellationRegistration;
-		private ManualResetValueTaskSourceCore<Releaser> _core; // Continuations are allowed to run synchronously by default, as opposed to our AsyncReaderWriterLock.
-
-		private int _reserved;
+		private ManualResetValueTaskSourceCore<Releaser> _core;
+		private int _result;
 
 		public Waiter(AsyncLock asyncLock)
 		{
 			_asyncLock = asyncLock;
+			_core.RunContinuationsAsynchronously = !asyncLock._allowSynchronousContinuations;
 		}
 
 		public short Version => _core.Version;
 
 		[DebuggerBrowsable(DebuggerBrowsableState.Never)]
-		private bool Reserved => Volatile.Read(ref _reserved) != 0;
+		private bool HasResult => Volatile.Read(ref _result) == 1;
 
 		public Releaser GetResult(short token)
 		{
 			var result = _core.GetResult(token);
-			// Reset the necessary fields before returning to the pool.
 			_cancellationRegistration.Dispose();
+			// Reset the necessary fields before returning to the pool.
 			_core.Reset();
-			_reserved = 0;
+			Volatile.Write(ref _result, 0);
 			_asyncLock.Return(this);
 			return result;
 		}
@@ -150,13 +162,10 @@ public sealed class AsyncLock
 
 		public void SetResult(in Releaser releaser)
 		{
-			Debug.Assert(Reserved);
-			_core.SetResult(releaser);
-		}
-
-		public bool TryReserve()
-		{
-			return Interlocked.Exchange(ref _reserved, 1) == 0;
+			if (Interlocked.Exchange(ref _result, 1) == 0)
+			{
+				_core.SetResult(releaser);
+			}
 		}
 
 		public void SetCancellation(CancellationToken cancellationToken)
@@ -164,12 +173,12 @@ public sealed class AsyncLock
 			_cancellationRegistration = cancellationToken.Register(static state => // This closure must be static to reduce allocation.
 			{
 				var self = (Waiter)state!;
-				if (self.TryReserve())
+				if (Interlocked.Exchange(ref self._result, 1) == 0)
 				{
-					self._asyncLock.Release(true); // Release before propagation.
+					self._asyncLock.Release(self); // Release before propagation.
 					self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
 				}
-			}, this);
+			}, this, false);
 		}
 	}
 
