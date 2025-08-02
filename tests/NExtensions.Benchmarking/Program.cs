@@ -11,8 +11,6 @@ internal class Program
 	private static async Task Main(string[] args)
 	{
 #if DEBUG
-		var benchmark = new RwLockBenchmarkUnlimited();
-		await benchmark.ListWithAsyncReaderWriterLock();
 		return;
 #endif
 		var config =
