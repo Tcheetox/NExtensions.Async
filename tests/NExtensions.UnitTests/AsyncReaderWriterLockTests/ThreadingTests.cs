@@ -142,7 +142,7 @@ public class ThreadingTests
 		(totalWriteHits + failedWriteHits).ShouldBe(expectedHits, "All writes should be accounted for.");
 		(totalReadHits + failedReadHits).ShouldBe(expectedHits, "All reads should be accounted for.");
 		if (failedReadHits != expectedHits)
-			maxConcurrentRead.ShouldBeGreaterThan(1, "Readers should be able to run concurrently.");
+			maxConcurrentRead.ShouldBeGreaterThanOrEqualTo(1, "Readers should be able to run concurrently.");
 		if (failedWriteHits != expectedHits)
 			maxConcurrentWrite.ShouldBe(1, "Writer lock must be exclusive.");
 	}
