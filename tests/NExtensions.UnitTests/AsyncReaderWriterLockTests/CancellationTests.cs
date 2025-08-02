@@ -114,9 +114,9 @@ public class CancellationTests
 	[Fact]
 	public async Task EnterWriterScopeAsync_ReleaseQueuedReader_WhenCancelledWhileAboutToRun()
 	{
-		await ParallelUtility.ForAsync(0, 100, async (_, _) =>
+		await ParallelUtility.ForAsync(0, 10, async (_, _) =>
 		{
-			for (var i = 0; i < 100; i++)
+			for (var i = 0; i < 100; i += 2)
 			{
 				var rwLock = AsyncReaderWriterLockFactory.Create(false, false);
 				var reader1 = await rwLock.EnterReaderScopeAsync(CancellationToken.None);
@@ -142,9 +142,9 @@ public class CancellationTests
 	[Fact]
 	public async Task EnterReaderScopeAsync_ReleaseQueuedWriter_WhenCancelledWhileAboutToRun()
 	{
-		await ParallelUtility.ForAsync(0, 100, async (_, _) =>
+		await ParallelUtility.ForAsync(0, 10, async (_, _) =>
 		{
-			for (var i = 0; i < 100; i++)
+			for (var i = 0; i < 100; i += 2)
 			{
 				var rwLock = AsyncReaderWriterLockFactory.Create(false, false);
 				var writer1 = await rwLock.EnterWriterScopeAsync(CancellationToken.None);

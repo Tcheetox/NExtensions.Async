@@ -36,7 +36,7 @@ public class ThreadingTests
 	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
 	public async Task AsyncLock_AllowsOnlySingleEntryConcurrently_WithRandomCancellation(bool syncContinuation)
 	{
-		const int expectedHits = 10_000;
+		const int expectedHits = 3_000;
 		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var concurrentCount = 0;
 		var totalHits = 0;

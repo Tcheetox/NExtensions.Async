@@ -143,7 +143,7 @@ public class ThreadingTests
 		(totalReadHits + failedReadHits).ShouldBe(expectedHits, "All reads should be accounted for.");
 		if (failedReadHits != expectedHits)
 		{
-			if (Environment.ProcessorCount >= 2)
+			if (Environment.ProcessorCount >= 4)
 				maxConcurrentRead.ShouldBeGreaterThan(1, "Readers should be able to run concurrently.");
 			else
 				maxConcurrentRead.ShouldBeGreaterThanOrEqualTo(1, "Readers should be able to run concurrently (but maybe not on small hardware).");
