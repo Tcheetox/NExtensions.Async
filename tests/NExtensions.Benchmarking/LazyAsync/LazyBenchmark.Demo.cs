@@ -10,12 +10,12 @@ namespace NExtensions.Benchmarking.LazyAsync;
 //[SimpleJob(warmupCount: 3, iterationCount: 10)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
-public class LazyBenchmark
+public class LazyBenchmarkDemo
 {
-	[Params(1, 5, 20)]
+	[Params(1, 10, 100)]
 	public int Parallelism { get; set; } = 1;
 
-	[Params(1, 10, 100)]
+	[Params(0, 1)]
 	public int Wait { get; set; } = 1;
 
 	private static async Task<int> GetAfterAsync(int after, CancellationToken token = default)

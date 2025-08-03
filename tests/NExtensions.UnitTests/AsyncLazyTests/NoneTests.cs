@@ -7,12 +7,13 @@ namespace NExtensions.UnitTests.AsyncLazyTests;
 [Collection("NonParallelTests")]
 public class NoneTests : NonParallelTests
 {
-	private const LazyAsyncThreadSafetyMode Mode = LazyAsyncThreadSafetyMode.None;
+	private const LazyAsyncSafetyMode Mode = LazyAsyncSafetyMode.None;
 
-	[Fact]
-	public async Task GetNoneAsync_CreatesOnce_OnSuccess()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetNoneAsync_CreatesOnce_OnSuccess(bool withCancellation)
 	{
-		var asyncLazy = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(5, token), withCancellation, Mode);
 
 		for (var i = 0; i < 3; i++)
 		{
@@ -23,10 +24,11 @@ public class NoneTests : NonParallelTests
 		VoidResult.GetCounter().ShouldBe(1);
 	}
 
-	[Fact]
-	public async Task GetNoneAsync_CreatesOnce_OnError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetNoneAsync_CreatesOnce_OnError(bool withCancellation)
 	{
-		var asyncLazy = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(5, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(5, token), withCancellation, Mode);
 
 		for (var i = 0; i < 3; i++)
 		{
@@ -37,10 +39,11 @@ public class NoneTests : NonParallelTests
 		CtorException.GetCounter().ShouldBe(1);
 	}
 
-	[Fact]
-	public async Task GetNoneAsync_CreatesOnce_OnFactoryError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetNoneAsync_CreatesOnce_OnFactoryError(bool withCancellation)
 	{
-		var asyncLazy = new AsyncLazy<VoidResult>(_ => CtorException.ThrowsDirectly(), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(_ => CtorException.ThrowsDirectly(), withCancellation, Mode);
 
 		for (var i = 0; i < 3; i++)
 		{

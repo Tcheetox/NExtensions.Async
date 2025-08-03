@@ -1,7 +1,7 @@
 ﻿using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
-using NExtensions.Benchmarking.LockAsync;
+using NExtensions.Benchmarking.LazyAsync;
 using Perfolizer.Horology;
 
 namespace NExtensions.Benchmarking;
@@ -21,9 +21,9 @@ internal class Program
 
 		//BenchmarkRunner.Run<DequeBenchmark>(config);
 		//BenchmarkRunner.Run<RwLockBenchmarkDemo>(config);
-		//	BenchmarkRunner.Run<LazyBenchmark>(config);
+		BenchmarkRunner.Run<LazyBenchmarkDemo>(config);
 		//	BenchmarkRunner.Run<LockBenchmark>(config);
-		BenchmarkRunner.Run<LockBenchmarkDemo>(config);
+		//BenchmarkRunner.Run<LockBenchmarkDemo>(config);
 		await ValueTask.CompletedTask;
 	}
 }

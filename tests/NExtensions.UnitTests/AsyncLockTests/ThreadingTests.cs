@@ -64,7 +64,7 @@ public class ThreadingTests
 				Interlocked.Increment(ref failedHits);
 			}
 		});
-		
+
 		(failedHits + totalHits).ShouldBe(expectedHits, "All attempts should be either successful or cancelled.");
 		failedHits.ShouldBeGreaterThan(0);
 	}

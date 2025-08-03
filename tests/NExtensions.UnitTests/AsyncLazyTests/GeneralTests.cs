@@ -18,21 +18,22 @@ public class GeneralTests : NonParallelTests
 
 		var resultViaWaiter = await lazy;
 		resultViaWaiter.ShouldBe(result);
-		var resultViaGetValueAsync = await lazy.GetValueAsync();
+		var resultViaGetValueAsync = await lazy.GetAsync();
 		resultViaGetValueAsync.ShouldBe(result);
 		lazy.IsRetryable.ShouldBe(lazyOverload.IsRetryable);
 	}
 
-	[Fact]
-	public async Task GetValueAsync_ReturnsTheSameInstance_AsIfDirectlyAwaited()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetValueAsync_ReturnsTheSameInstance_AsIfDirectlyAwaited(bool withCancellation)
 	{
-		foreach (var mode in Enum.GetValues<LazyAsyncThreadSafetyMode>())
+		foreach (var mode in Enum.GetValues<LazyAsyncSafetyMode>())
 		{
 			VoidResult.Reset();
-			var asyncLazy = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), mode);
+			var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(5, token), withCancellation, mode);
 
 			var value = await asyncLazy;
-			var alsoValue = await asyncLazy.GetValueAsync();
+			var alsoValue = await asyncLazy.GetAsync();
 			value.ShouldBe(alsoValue);
 
 			VoidResult.GetCounter().ShouldBe(1);
@@ -44,14 +45,15 @@ public class GeneralTests : NonParallelTests
 		}
 	}
 
-	[Fact]
-	public async Task AsyncLazy_MaintainsProperState_OnSuccess()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task AsyncLazy_MaintainsProperState_OnSuccess(bool withCancellation)
 	{
-		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None };
+		var noRetryModes = new[] { LazyAsyncSafetyMode.ExecutionAndPublication, LazyAsyncSafetyMode.None };
 		foreach (var noRetryMode in noRetryModes)
 		{
 			VoidResult.Reset();
-			var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), noRetryMode);
+			var asyncLazyNoRetry = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(5, token), withCancellation, noRetryMode);
 			await asyncLazyNoRetry;
 			asyncLazyNoRetry.IsRetryable.ShouldBeFalse();
 			asyncLazyNoRetry.IsValueCreated.ShouldBeTrue();
@@ -63,11 +65,11 @@ public class GeneralTests : NonParallelTests
 		}
 
 		var retryModes = new[]
-			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnly, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
+			{ LazyAsyncSafetyMode.NoneWithRetry, LazyAsyncSafetyMode.PublicationOnly, LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry };
 		foreach (var retryMode in retryModes)
 		{
 			VoidResult.Reset();
-			var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), retryMode);
+			var asyncLazyNoRetry = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(5, token), withCancellation, retryMode);
 			asyncLazyNoRetry.IsRetryable.ShouldBeTrue();
 			await asyncLazyNoRetry;
 			asyncLazyNoRetry.IsValueCreated.ShouldBeTrue();
@@ -79,14 +81,15 @@ public class GeneralTests : NonParallelTests
 		}
 	}
 
-	[Fact]
-	public async Task AsyncLazy_MaintainsProperState_OnError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task AsyncLazy_MaintainsProperState_OnError(bool withCancellation)
 	{
-		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None };
+		var noRetryModes = new[] { LazyAsyncSafetyMode.ExecutionAndPublication, LazyAsyncSafetyMode.None };
 		foreach (var noRetryMode in noRetryModes)
 		{
 			CtorException.Reset();
-			var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(5, token), noRetryMode);
+			var asyncLazyNoRetry = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(5, token), withCancellation, noRetryMode);
 			await Should.ThrowAsync<CtorException>(async () => await asyncLazyNoRetry);
 			asyncLazyNoRetry.IsRetryable.ShouldBeFalse();
 			asyncLazyNoRetry.IsValueCreated.ShouldBeTrue();
@@ -98,33 +101,34 @@ public class GeneralTests : NonParallelTests
 		}
 
 		var retryModes = new[]
-			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnly, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
+			{ LazyAsyncSafetyMode.NoneWithRetry, LazyAsyncSafetyMode.PublicationOnly, LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry };
 		foreach (var retryMode in retryModes)
 		{
 			CtorException.Reset();
-			var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(5, token), retryMode);
-			asyncLazyNoRetry.IsRetryable.ShouldBeTrue();
-			await Should.ThrowAsync<CtorException>(async () => await asyncLazyNoRetry);
+			var asyncLazyRetry = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(5, token), withCancellation, retryMode);
+			asyncLazyRetry.IsRetryable.ShouldBeTrue();
+			await Should.ThrowAsync<CtorException>(async () => await asyncLazyRetry);
 			// Carry little values in retryable mode
-			asyncLazyNoRetry.IsValueCreated.ShouldBeFalse();
-			asyncLazyNoRetry.IsFaulted.ShouldBeFalse();
-			asyncLazyNoRetry.IsCompleted.ShouldBeFalse();
-			asyncLazyNoRetry.IsCompletedSuccessfully.ShouldBeFalse();
-			asyncLazyNoRetry.IsCanceled.ShouldBeFalse();
+			asyncLazyRetry.IsValueCreated.ShouldBeFalse();
+			asyncLazyRetry.IsFaulted.ShouldBeFalse();
+			asyncLazyRetry.IsCompleted.ShouldBeFalse();
+			asyncLazyRetry.IsCompletedSuccessfully.ShouldBeFalse();
+			asyncLazyRetry.IsCanceled.ShouldBeFalse();
 			CtorException.GetCounter().ShouldBe(1);
 		}
 	}
 
-	[Fact]
-	public async Task AsyncLazy_MaintainsProperState_OnCanceledToken()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task AsyncLazy_MaintainsProperState_OnCanceledToken(bool withCancellation)
 	{
-		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None };
+		var noRetryModes = new[] { LazyAsyncSafetyMode.ExecutionAndPublication, LazyAsyncSafetyMode.None };
 		var cancelledToken = new CancellationToken(true);
 		foreach (var noRetryMode in noRetryModes)
 		{
 			CtorException.Reset();
-			var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(50, token), noRetryMode);
-			await Should.ThrowAsync<OperationCanceledException>(async () => await asyncLazyNoRetry.GetValueAsync(cancelledToken));
+			var asyncLazyNoRetry = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(50, token), withCancellation, noRetryMode);
+			await Should.ThrowAsync<OperationCanceledException>(async () => await asyncLazyNoRetry.GetAsync(cancelledToken));
 			asyncLazyNoRetry.IsRetryable.ShouldBeFalse();
 			asyncLazyNoRetry.IsValueCreated.ShouldBeFalse(); // Because it's an already cancelled token.
 			asyncLazyNoRetry.IsFaulted.ShouldBeFalse();
@@ -135,18 +139,18 @@ public class GeneralTests : NonParallelTests
 		}
 
 		var retryModes = new[]
-			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnly, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
+			{ LazyAsyncSafetyMode.NoneWithRetry, LazyAsyncSafetyMode.PublicationOnly, LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry };
 		foreach (var retryMode in retryModes)
 		{
 			CtorException.Reset();
-			var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(5, token), retryMode);
-			asyncLazyNoRetry.IsRetryable.ShouldBeTrue();
-			await Should.ThrowAsync<OperationCanceledException>(async () => await asyncLazyNoRetry.GetValueAsync(cancelledToken));
-			asyncLazyNoRetry.IsValueCreated.ShouldBeFalse();
-			asyncLazyNoRetry.IsFaulted.ShouldBeFalse();
-			asyncLazyNoRetry.IsCompleted.ShouldBeFalse();
-			asyncLazyNoRetry.IsCompletedSuccessfully.ShouldBeFalse();
-			asyncLazyNoRetry.IsCanceled.ShouldBeFalse();
+			var asyncLazyRetry = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(5, token), withCancellation, retryMode);
+			asyncLazyRetry.IsRetryable.ShouldBeTrue();
+			await Should.ThrowAsync<OperationCanceledException>(async () => await asyncLazyRetry.GetAsync(cancelledToken));
+			asyncLazyRetry.IsValueCreated.ShouldBeFalse();
+			asyncLazyRetry.IsFaulted.ShouldBeFalse();
+			asyncLazyRetry.IsCompleted.ShouldBeFalse();
+			asyncLazyRetry.IsCompletedSuccessfully.ShouldBeFalse();
+			asyncLazyRetry.IsCanceled.ShouldBeFalse();
 			CtorException.GetCounter().ShouldBe(0);
 		}
 	}
@@ -154,17 +158,18 @@ public class GeneralTests : NonParallelTests
 	[Fact]
 	public async Task AsyncLazy_MaintainsProperState_OnCanceledTokenMidFlight()
 	{
+		// Only valid when using the ctor supporting factory with cancellation tokens.
 		const int sleep = 50;
 		const int cancelAfter = 20;
 
-		var noRetryModes = new[] { LazyAsyncThreadSafetyMode.ExecutionAndPublication, LazyAsyncThreadSafetyMode.None };
+		var noRetryModes = new[] { LazyAsyncSafetyMode.ExecutionAndPublication, LazyAsyncSafetyMode.None };
 
 		foreach (var noRetryMode in noRetryModes)
 		{
 			CtorException.Reset();
 			var canceller = new CancellationTokenSource(cancelAfter);
 			var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(sleep, token), noRetryMode);
-			await Should.ThrowAsync<OperationCanceledException>(async () => await asyncLazyNoRetry.GetValueAsync(canceller.Token));
+			await Should.ThrowAsync<OperationCanceledException>(async () => await asyncLazyNoRetry.GetAsync(canceller.Token));
 			asyncLazyNoRetry.IsRetryable.ShouldBeFalse();
 			asyncLazyNoRetry.IsValueCreated.ShouldBeTrue();
 			asyncLazyNoRetry.IsFaulted.ShouldBeFalse();
@@ -176,19 +181,19 @@ public class GeneralTests : NonParallelTests
 		}
 
 		var retryModes = new[]
-			{ LazyAsyncThreadSafetyMode.NoneWithRetry, LazyAsyncThreadSafetyMode.PublicationOnly, LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry };
+			{ LazyAsyncSafetyMode.NoneWithRetry, LazyAsyncSafetyMode.PublicationOnly, LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry };
 		foreach (var retryMode in retryModes)
 		{
 			CtorException.Reset();
 			var canceller = new CancellationTokenSource(cancelAfter);
-			var asyncLazyNoRetry = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(sleep, token), retryMode);
-			asyncLazyNoRetry.IsRetryable.ShouldBeTrue();
-			await Should.ThrowAsync<OperationCanceledException>(async () => await asyncLazyNoRetry.GetValueAsync(canceller.Token));
-			asyncLazyNoRetry.IsValueCreated.ShouldBeFalse();
-			asyncLazyNoRetry.IsFaulted.ShouldBeFalse();
-			asyncLazyNoRetry.IsCompleted.ShouldBeFalse();
-			asyncLazyNoRetry.IsCompletedSuccessfully.ShouldBeFalse();
-			asyncLazyNoRetry.IsCanceled.ShouldBeFalse();
+			var asyncLazyRetry = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(sleep, token), retryMode);
+			asyncLazyRetry.IsRetryable.ShouldBeTrue();
+			await Should.ThrowAsync<OperationCanceledException>(async () => await asyncLazyRetry.GetAsync(canceller.Token));
+			asyncLazyRetry.IsValueCreated.ShouldBeFalse();
+			asyncLazyRetry.IsFaulted.ShouldBeFalse();
+			asyncLazyRetry.IsCompleted.ShouldBeFalse();
+			asyncLazyRetry.IsCompletedSuccessfully.ShouldBeFalse();
+			asyncLazyRetry.IsCanceled.ShouldBeFalse();
 			CtorException.GetCounter().ShouldBe(0);
 			canceller.Dispose();
 		}

@@ -64,9 +64,9 @@ public sealed class AsyncLock
 			}
 
 			var waiter = Rent();
-			if (cancellationToken.CanBeCanceled)
-				waiter.SetCancellation(cancellationToken);
 			_waiterQueue.AddLast(waiter);
+			if (cancellationToken.CanBeCanceled)
+				waiter.SetCancellation(cancellationToken); // In case it's cancelled the callback will be run synchronously, hence the waiter must be in the queue! 
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
@@ -87,7 +87,7 @@ public sealed class AsyncLock
 		}
 
 		Debug.Assert(waiterToWake is not null == _active, "Invalid state: _active must match waiter presence.");
-		waiterToWake?.SetResult(new Releaser(this));
+		waiterToWake?.TrySetResult();
 	}
 
 	/// <summary>
@@ -160,11 +160,11 @@ public sealed class AsyncLock
 			_core.OnCompleted(continuation, state, token, flags);
 		}
 
-		public void SetResult(in Releaser releaser)
+		public void TrySetResult()
 		{
 			if (Interlocked.Exchange(ref _result, 1) == 0)
 			{
-				_core.SetResult(releaser);
+				_core.SetResult(new Releaser(_asyncLock));
 			}
 		}
 

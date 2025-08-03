@@ -84,9 +84,9 @@ public sealed class AsyncReaderWriterLock
 			}
 
 			var waiter = Rent(ReleaseMode.Reader);
-			if (cancellationToken.CanBeCanceled)
-				waiter.SetCancellation(cancellationToken);
 			_readerQueue.AddLast(waiter);
+			if (cancellationToken.CanBeCanceled)
+				waiter.SetCancellation(cancellationToken); // In case it's cancelled the callback will be run synchronously, hence the waiter must be in the queue!
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
@@ -112,9 +112,9 @@ public sealed class AsyncReaderWriterLock
 			}
 
 			var waiter = Rent(ReleaseMode.Writer);
-			if (cancellationToken.CanBeCanceled) // Avoid binding useless tokens.
-				waiter.SetCancellation(cancellationToken);
 			_writerQueue.AddLast(waiter);
+			if (cancellationToken.CanBeCanceled) // Avoid binding useless tokens.
+				waiter.SetCancellation(cancellationToken); // In case it's cancelled the callback will be run synchronously, hence the waiter must be in the queue!
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
@@ -131,7 +131,9 @@ public sealed class AsyncReaderWriterLock
 				case ReleaseMode.Reader:
 					if (cancelledWaiter is null)
 					{
+						Debug.Assert(_readerCount > 0, "This reader was active, it must be there!");
 						_readerCount--;
+
 						Debug.Assert(_readerCount >= 0);
 					}
 					else if (!_readerQueue.Remove(cancelledWaiter))
@@ -181,13 +183,13 @@ public sealed class AsyncReaderWriterLock
 		// Do not call SetResult in the lock to reduce contention, and protect it from synchronous continuations.
 		if (writerToWake is not null)
 		{
-			writerToWake.SetResult(new Releaser(this, ReleaseMode.Writer));
+			writerToWake.TrySetResult(ReleaseMode.Writer);
 			return;
 		}
 
 		if (readersToWake is null) return;
 		foreach (var reader in readersToWake)
-			reader.SetResult(new Releaser(this, ReleaseMode.Reader));
+			reader.TrySetResult(ReleaseMode.Reader);
 	}
 
 	/// <summary>
@@ -288,14 +290,14 @@ public sealed class AsyncReaderWriterLock
 					self._rwLock.Release(self._mode, self); // Release before propagation.
 					self._core.SetException(new OperationCanceledException(self._cancellationRegistration.Token));
 				}
-			}, this, false);
+			}, this, true);
 		}
 
-		public void SetResult(in Releaser releaser)
+		public void TrySetResult(ReleaseMode mode)
 		{
 			if (Interlocked.Exchange(ref _result, 1) == 0)
 			{
-				_core.SetResult(releaser);
+				_core.SetResult(new Releaser(_rwLock, mode));
 			}
 		}
 	}

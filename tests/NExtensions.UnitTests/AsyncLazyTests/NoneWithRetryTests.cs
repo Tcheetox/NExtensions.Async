@@ -7,12 +7,13 @@ namespace NExtensions.UnitTests.AsyncLazyTests;
 [Collection("NonParallelTests")]
 public class NoneWithRetryTests : NonParallelTests
 {
-	private const LazyAsyncThreadSafetyMode Mode = LazyAsyncThreadSafetyMode.NoneWithRetry;
+	private const LazyAsyncSafetyMode Mode = LazyAsyncSafetyMode.NoneWithRetry;
 
-	[Fact]
-	public async Task GetNoneWithRetryAsync_CreatesOnce_OnSuccess()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetNoneWithRetryAsync_CreatesOnce_OnSuccess(bool withCancellation)
 	{
-		var asyncLazy = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(5, token), withCancellation, Mode);
 
 		for (var i = 0; i < 3; i++)
 		{
@@ -24,11 +25,12 @@ public class NoneWithRetryTests : NonParallelTests
 		asyncLazy.HasFactory.ShouldBeFalse();
 	}
 
-	[Fact]
-	public async Task GetNoneWithRetryAsync_Retries_OnError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetNoneWithRetryAsync_Retries_OnError(bool withCancellation)
 	{
 		const int attempts = 3;
-		var asyncLazy = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(5, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(5, token), withCancellation, Mode);
 
 		for (var i = 0; i < attempts; i++)
 		{
@@ -39,11 +41,12 @@ public class NoneWithRetryTests : NonParallelTests
 		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
-	[Fact]
-	public async Task GetNoneWithRetryAsync_Retries_OnFactoryError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetNoneWithRetryAsync_Retries_OnFactoryError(bool withCancellation)
 	{
 		const int attempts = 3;
-		var asyncLazy = new AsyncLazy<VoidResult>(_ => CtorException.ThrowsDirectly(), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(_ => CtorException.ThrowsDirectly(), withCancellation, Mode);
 
 		for (var i = 0; i < attempts; i++)
 		{
@@ -54,16 +57,17 @@ public class NoneWithRetryTests : NonParallelTests
 		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
-	[Fact]
-	public async Task GetNoneWithRetryAsync_ResetOnErrorEvenIfNotAwaited_OnError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetNoneWithRetryAsync_ResetOnErrorEvenIfNotAwaited_OnError(bool withCancellation)
 	{
 		const int attempts = 3;
 		const int sleep = 5;
-		var asyncLazy = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(sleep, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(sleep, token), withCancellation, Mode);
 
 		for (var i = 0; i < attempts; i++)
 		{
-			var task = asyncLazy.GetValueAsync();
+			var task = asyncLazy.GetAsync();
 			task.IsCompleted.ShouldBeFalse();
 			asyncLazy.IsValueCreated.ShouldBeFalse(); // Result cannot be there since it's an exception with retry policy.
 			await Task.Delay(sleep * 10); // Some breathing room to ensure it completes.
@@ -76,15 +80,16 @@ public class NoneWithRetryTests : NonParallelTests
 		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
-	[Fact]
-	public void GetNoneWithRetryAsync_ResetOnErrorEvenIfNotAwaited_OnFactoryError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public void GetNoneWithRetryAsync_ResetOnErrorEvenIfNotAwaited_OnFactoryError(bool withCancellation)
 	{
 		const int attempts = 3;
-		var asyncLazy = new AsyncLazy<VoidResult>(_ => CtorException.ThrowsDirectly(), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(_ => CtorException.ThrowsDirectly(), withCancellation, Mode);
 
 		for (var i = 0; i < attempts; i++)
 		{
-			var task = asyncLazy.GetValueAsync();
+			var task = asyncLazy.GetAsync();
 			task.IsCompleted.ShouldBeTrue();
 			task.IsFaulted.ShouldBeTrue();
 			asyncLazy.IsValueCreated.ShouldBeFalse();

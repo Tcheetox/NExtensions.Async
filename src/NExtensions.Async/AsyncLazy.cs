@@ -3,14 +3,11 @@ using System.Runtime.CompilerServices;
 
 namespace NExtensions.Async;
 
-// TODO: readme
-// TODO: pipeline
-
 /// <summary>
 /// Specifies the thread-safety and retry behavior modes for <see cref="AsyncLazy{T}"/> initialization.
 /// Heavily inspired from <see cref="LazyThreadSafetyMode"/>.
 /// </summary>
-public enum LazyAsyncThreadSafetyMode
+public enum LazyAsyncSafetyMode
 {
 	/// <summary>
 	/// No thread-safety guarantees, and no retry on failure.
@@ -40,7 +37,7 @@ public enum LazyAsyncThreadSafetyMode
 
 	/// <summary>
 	/// Guarantees thread-safe execution and publication, retry on failure until success is stored for good.
-	/// Somehow similar to <see cref="PublicationOnly"/>, but ensures a single thread executes the factory at once.
+	/// Somehow similar to <see cref="PublicationOnly"/>, but ensures a single thread executes the factory and await its result at once.
 	/// </summary>
 	/// <remarks>In case of failures, those are not published but returned individually.</remarks>
 	ExecutionAndPublicationWithRetry
@@ -48,16 +45,16 @@ public enum LazyAsyncThreadSafetyMode
 
 /// <summary>
 /// Provides support for asynchronous lazy initialization with configurable thread-safety and retry semantics.
-/// The value is initialized asynchronously on demand and cached according to the specified <see cref="LazyAsyncThreadSafetyMode"/>.
+/// The value is initialized asynchronously on demand and cached according to the specified <see cref="LazyAsyncSafetyMode"/>.
 /// </summary>
 /// <typeparam name="T">The type of the lazily initialized value.</typeparam>
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
 public class AsyncLazy<T>
 {
-	private readonly LazyAsyncThreadSafetyMode _mode;
-	private readonly AsyncLock _sync = new();
+	private readonly LazyAsyncSafetyMode _mode;
+	private readonly AsyncLock? _sync;
 
-	private Func<CancellationToken, Task<T>> _factory;
+	private object _factory;
 	private Task<T>? _value;
 
 	/// <summary>
@@ -65,14 +62,17 @@ public class AsyncLazy<T>
 	/// </summary>
 	/// <param name="valueFactory">The asynchronous delegate that produces the lazily initialized value.</param>
 	/// <param name="mode">
-	/// The thread-safety and retry mode controlling how the initialization is synchronized and retried.
-	/// Defaults to <see cref="LazyAsyncThreadSafetyMode.ExecutionAndPublication"/>.
+	/// The safety mode controlling how the initialization is synchronized and retried.
+	/// Defaults to <see cref="LazyAsyncSafetyMode.ExecutionAndPublication"/>.
 	/// </param>
 	/// <exception cref="ArgumentNullException">Thrown if <paramref name="valueFactory"/> is <c>null</c>.</exception>
-	public AsyncLazy(Func<Task<T>> valueFactory,
-		LazyAsyncThreadSafetyMode mode = LazyAsyncThreadSafetyMode.ExecutionAndPublication)
-		: this(_ => valueFactory(), mode)
+	public AsyncLazy(Func<Task<T>> valueFactory, LazyAsyncSafetyMode mode = LazyAsyncSafetyMode.ExecutionAndPublication)
 	{
+		ArgumentNullException.ThrowIfNull(valueFactory);
+		_factory = valueFactory;
+		_mode = mode;
+		if (mode is LazyAsyncSafetyMode.ExecutionAndPublication or LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry)
+			_sync = new AsyncLock(true);
 	}
 
 	/// <summary>
@@ -80,21 +80,21 @@ public class AsyncLazy<T>
 	/// </summary>
 	/// <param name="valueFactory">The asynchronous delegate that produces the lazily initialized value with cancellation support.</param>
 	/// <param name="mode">
-	/// The thread-safety and retry mode controlling how the initialization is synchronized and retried.
-	/// Defaults to <see cref="LazyAsyncThreadSafetyMode.ExecutionAndPublication"/>.
+	/// The safety mode controlling how the initialization is synchronized and retried.
+	/// Defaults to <see cref="LazyAsyncSafetyMode.ExecutionAndPublication"/>.
 	/// </param>
 	/// <exception cref="ArgumentNullException">Thrown if <paramref name="valueFactory"/> is <c>null</c>.</exception>
-	public AsyncLazy(Func<CancellationToken, Task<T>> valueFactory,
-		LazyAsyncThreadSafetyMode mode = LazyAsyncThreadSafetyMode.ExecutionAndPublication)
+	public AsyncLazy(Func<CancellationToken, Task<T>> valueFactory, LazyAsyncSafetyMode mode = LazyAsyncSafetyMode.ExecutionAndPublication)
 	{
 		ArgumentNullException.ThrowIfNull(valueFactory);
 		_factory = valueFactory;
 		_mode = mode;
+		if (mode is LazyAsyncSafetyMode.ExecutionAndPublication or LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry)
+			_sync = new AsyncLock(true);
 	}
 
 	[DebuggerBrowsable(DebuggerBrowsableState.Never)]
-	private string DebuggerDisplay =>
-		$"Mode={_mode}, HasValue={_value != null}";
+	private string DebuggerDisplay => $"Mode={_mode}, HasValue={IsValueCreated}, IsRetryable={IsRetryable}";
 
 	// ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 	/// <summary>
@@ -105,9 +105,9 @@ public class AsyncLazy<T>
 	/// <summary>
 	/// Gets a value indicating whether the current thread-safety mode supports retry on failure.
 	/// </summary>
-	public bool IsRetryable => _mode is LazyAsyncThreadSafetyMode.NoneWithRetry
-		or LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry
-		or LazyAsyncThreadSafetyMode.PublicationOnly;
+	public bool IsRetryable => _mode is LazyAsyncSafetyMode.NoneWithRetry
+		or LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry
+		or LazyAsyncSafetyMode.PublicationOnly;
 
 	/// <summary>
 	/// Gets an awaiter used to await the lazily initialized value.
@@ -115,7 +115,7 @@ public class AsyncLazy<T>
 	/// <returns>A task awaiter for the lazily initialized value.</returns>
 	public TaskAwaiter<T> GetAwaiter()
 	{
-		return GetValueAsync(CancellationToken.None).GetAwaiter();
+		return GetAsync(CancellationToken.None).GetAwaiter();
 	}
 
 	/// <summary>
@@ -123,7 +123,8 @@ public class AsyncLazy<T>
 	/// </summary>
 	/// <param name="cancellationToken">The cancellation token to cancel the initialization.</param>
 	/// <returns>A task that represents the asynchronous initialization operation. The task result is the lazily initialized value.</returns>
-	public Task<T> GetValueAsync(CancellationToken cancellationToken = default)
+	/// <remarks>This method is only relevant when combined with the constructor that takes a factory supporting cancellation tokens.</remarks>
+	public Task<T> GetAsync(CancellationToken cancellationToken = default)
 	{
 		if (cancellationToken.IsCancellationRequested)
 			return Task.FromCanceled<T>(cancellationToken);
@@ -134,20 +135,28 @@ public class AsyncLazy<T>
 
 		return _mode switch
 		{
-			LazyAsyncThreadSafetyMode.None => GetNoneAsync(cancellationToken),
-			LazyAsyncThreadSafetyMode.NoneWithRetry => GetNoneWithRetryAsync(cancellationToken),
-			LazyAsyncThreadSafetyMode.PublicationOnly => GetPublicationOnlyWithRetryAsync(cancellationToken), // PublicationOnly mode is always retryable.
-			LazyAsyncThreadSafetyMode.ExecutionAndPublication => GetExecutionAndPublicationAsync(cancellationToken),
-			LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry => GetExecutionAndPublicationWithRetryAsync(cancellationToken),
+			LazyAsyncSafetyMode.None => GetNoneAsync(cancellationToken),
+			LazyAsyncSafetyMode.NoneWithRetry => GetNoneWithRetryAsync(cancellationToken),
+			LazyAsyncSafetyMode.PublicationOnly => GetPublicationOnlyWithRetryAsync(cancellationToken), // PublicationOnly mode is always retryable.
+			LazyAsyncSafetyMode.ExecutionAndPublication => GetExecutionAndPublicationAsync(cancellationToken),
+			LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry => GetExecutionAndPublicationWithRetryAsync(cancellationToken),
 			_ => throw new NotSupportedException($"Mode {_mode} is not supported.")
 		};
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private Task<T> CreateWithOrWithoutCancellation(CancellationToken cancellationToken = default)
+	{
+		if (_factory is Func<Task<T>> direct)
+			return direct();
+		return ((Func<CancellationToken, Task<T>>)_factory)(cancellationToken);
 	}
 
 	private async Task<T> GetNoneAsync(CancellationToken cancellationToken = default)
 	{
 		try
 		{
-			_value = _factory(cancellationToken);
+			_value = CreateWithOrWithoutCancellation(cancellationToken);
 			return await _value.ConfigureAwait(false);
 		}
 		catch (Exception e)
@@ -165,7 +174,7 @@ public class AsyncLazy<T>
 	{
 		try
 		{
-			var local = _factory(cancellationToken);
+			var local = CreateWithOrWithoutCancellation(cancellationToken);
 			var result = await local.ConfigureAwait(false);
 			_value = local;
 			_factory = null!;
@@ -182,7 +191,7 @@ public class AsyncLazy<T>
 	{
 		try
 		{
-			var local = _factory(cancellationToken);
+			var local = CreateWithOrWithoutCancellation(cancellationToken);
 			_ = await local.ConfigureAwait(false);
 			var published = Interlocked.CompareExchange(ref _value, local, null) ?? local;
 			Debug.Assert(published.IsCompletedSuccessfully);
@@ -190,14 +199,14 @@ public class AsyncLazy<T>
 		}
 		catch (Exception ex)
 		{
-			// Do not store exception when retryable, but check still check if another thread might have succeeded in the meantime.
+			// Do not store exception when retryable, but still check if another thread might have succeeded in the meantime.
 			var published = Interlocked.CompareExchange(ref _value, null, null) ?? Task.FromException<T>(ex);
 			Debug.Assert(published.IsCompleted);
 			return published.GetAwaiter().GetResult();
 		}
 		finally
 		{
-			var local = _value;
+			var local = Volatile.Read(ref _value);
 			if (local is not null && local.IsCompletedSuccessfully)
 				_factory = null!;
 		}
@@ -205,13 +214,15 @@ public class AsyncLazy<T>
 
 	private async Task<T> GetExecutionAndPublicationAsync(CancellationToken cancellationToken = default)
 	{
-		// No retry policy, do not await within the semaphore to ensure quick release if not awaited directly by the caller.
+		// No retry policy, do not await within the lock to ensure quick release if not awaited directly by the caller.
 		Task<T> local;
-		using (await _sync.EnterScopeAsync(cancellationToken))
+		using (await _sync!
+			       .EnterScopeAsync(cancellationToken)
+			       .ConfigureAwait(false))
 		{
 			try
 			{
-				local = _value ??= _factory(cancellationToken);
+				local = _value ??= CreateWithOrWithoutCancellation(cancellationToken);
 			}
 			catch (Exception ex)
 			{
@@ -221,7 +232,7 @@ public class AsyncLazy<T>
 			finally
 			{
 				_factory = null!;
-				Debug.Assert(_value is not null);
+				Debug.Assert(_value is not null, "We either store the factory exception, or the legit task (which can still throw when awaited).");
 			}
 		}
 
@@ -230,9 +241,11 @@ public class AsyncLazy<T>
 
 	private async Task<T> GetExecutionAndPublicationWithRetryAsync(CancellationToken cancellationToken = default)
 	{
-		using (await _sync.EnterScopeAsync(cancellationToken))
+		using (await _sync!
+			       .EnterScopeAsync(cancellationToken)
+			       .ConfigureAwait(false))
 		{
-			var local = _value ?? _factory(cancellationToken);
+			var local = _value ?? CreateWithOrWithoutCancellation(cancellationToken);
 			var result = await local.ConfigureAwait(false);
 			_value = local;
 			_factory = null!;

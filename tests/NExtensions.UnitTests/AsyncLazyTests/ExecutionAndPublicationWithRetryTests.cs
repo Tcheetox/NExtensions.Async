@@ -9,12 +9,13 @@ namespace NExtensions.UnitTests.AsyncLazyTests;
 [Collection("NonParallelTests")]
 public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 {
-	private const LazyAsyncThreadSafetyMode Mode = LazyAsyncThreadSafetyMode.ExecutionAndPublicationWithRetry;
+	private const LazyAsyncSafetyMode Mode = LazyAsyncSafetyMode.ExecutionAndPublicationWithRetry;
 
-	[Fact]
-	public async Task GetExecutionAndPublicationWithRetry_CreatesOnce_OnSuccess()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetExecutionAndPublicationWithRetry_CreatesOnce_OnSuccess(bool withCancellation)
 	{
-		var asyncLazy = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(5, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(5, token), withCancellation, Mode);
 
 		for (var i = 0; i < 3; i++)
 		{
@@ -25,11 +26,12 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 		VoidResult.GetCounter().ShouldBe(1);
 	}
 
-	[Fact]
-	public async Task GetExecutionAndPublicationWithRetry_Retries_OnError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetExecutionAndPublicationWithRetry_Retries_OnError(bool withCancellation)
 	{
 		const int attempts = 3;
-		var asyncLazy = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(5, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(5, token), withCancellation, Mode);
 
 		for (var i = 0; i < 3; i++)
 		{
@@ -40,11 +42,12 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
-	[Fact]
-	public async Task GetExecutionAndPublicationWithRetry_Retries_OnFactoryError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetExecutionAndPublicationWithRetry_Retries_OnFactoryError(bool withCancellation)
 	{
 		const int attempts = 3;
-		var asyncLazy = new AsyncLazy<VoidResult>(_ => CtorException.ThrowsDirectly(), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(_ => CtorException.ThrowsDirectly(), withCancellation, Mode);
 
 		for (var i = 0; i < attempts; i++)
 		{
@@ -55,12 +58,13 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 		CtorException.GetCounter().ShouldBe(attempts);
 	}
 
-	[Fact]
-	public async Task GetExecutionAndPublicationWithRetry_PublishesAndCreatesOnce_OnSuccess()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetExecutionAndPublicationWithRetry_PublishesAndCreatesOnce_OnSuccess(bool withCancellation)
 	{
 		const int attempts = 10;
 		const int sleep = 30;
-		var asyncLazy = new AsyncLazy<VoidResult>(token => VoidResult.GetAsync(sleep, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(sleep, token), withCancellation, Mode);
 		var bag = new ConcurrentBag<VoidResult>();
 
 		await ParallelUtility.ForAsync(0, attempts, async (_, _) =>
@@ -74,12 +78,13 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 		bag.Distinct().Count().ShouldBe(1);
 	}
 
-	[Fact]
-	public async Task GetExecutionAndPublicationWithRetry_DoesNotPublish_OnError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetExecutionAndPublicationWithRetry_DoesNotPublish_OnError(bool withCancellation)
 	{
 		const int attempts = 10;
 		const int sleep = 30;
-		var asyncLazy = new AsyncLazy<VoidResult>(token => CtorException.ThrowsAsync(sleep, token), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(sleep, token), withCancellation, Mode);
 		var bag = new ConcurrentBag<CtorException>();
 
 		await ParallelUtility.ForAsync(0, attempts, async (_, _) =>
@@ -100,11 +105,12 @@ public class ExecutionAndPublicationWithRetryTests : NonParallelTests
 		bag.Distinct().Count().ShouldBe(bag.Count, "Each failure is the result of a new unsuccessful attempt.");
 	}
 
-	[Fact]
-	public async Task GetExecutionAndPublicationWithRetry_DoesNotPublish_OnFactoryError()
+	[Theory]
+	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
+	public async Task GetExecutionAndPublicationWithRetry_DoesNotPublish_OnFactoryError(bool withCancellation)
 	{
 		const int attempts = 10;
-		var asyncLazy = new AsyncLazy<VoidResult>(_ => CtorException.ThrowsDirectly(), Mode);
+		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(_ => CtorException.ThrowsDirectly(), withCancellation, Mode);
 		var bag = new ConcurrentBag<CtorException>();
 
 		await ParallelUtility.ForAsync(0, attempts, async (_, _) =>

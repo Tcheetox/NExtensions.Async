@@ -148,6 +148,7 @@ public class ThreadingTests
 			else
 				maxConcurrentRead.ShouldBeGreaterThanOrEqualTo(1, "Readers should be able to run concurrently (but maybe not on small hardware).");
 		}
+
 		if (failedWriteHits != expectedHits)
 			maxConcurrentWrite.ShouldBe(1, "Writer lock must be exclusive.");
 	}
