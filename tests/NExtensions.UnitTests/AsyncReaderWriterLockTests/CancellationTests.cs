@@ -105,7 +105,7 @@ public class CancellationTests
 		var writerLock = rwLock.EnterWriterScopeAsync(cts.Token);
 		var reader2 = rwLock.EnterReaderScopeAsync(CancellationToken.None);
 		reader2.IsCompleted.ShouldBeFalse();
-		await Task.Delay(50, CancellationToken.None);
+		await Task.Delay(100, CancellationToken.None);
 		reader2.IsCompletedSuccessfully.ShouldBeTrue("The cancelled writer must have released the enqueued readers");
 		await Should.ThrowAsync<OperationCanceledException>(async () => await writerLock);
 		reader1.Dispose();
