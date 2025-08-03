@@ -2,14 +2,18 @@
 
 public static class WaitUtility
 {
-	public static async Task WaitUntil(Func<bool> condition)
+	public static async Task WaitUntil(Func<bool> condition, TimeSpan timeout)
 	{
 		ArgumentNullException.ThrowIfNull(condition);
 
-		var delay = TimeSpan.FromMilliseconds(10); // Polling interval
+		var pollingInterval = TimeSpan.FromMilliseconds(10);
+		var startTime = DateTime.UtcNow;
+
 		while (!condition())
 		{
-			await Task.Delay(delay);
+			if (DateTime.UtcNow - startTime > timeout)
+				return; // Exit silently on timeout
+			await Task.Delay(pollingInterval);
 		}
 	}
 }
