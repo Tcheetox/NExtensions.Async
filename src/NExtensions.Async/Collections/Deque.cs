@@ -4,6 +4,11 @@ using System.Runtime.CompilerServices;
 
 namespace NExtensions.Async.Collections;
 
+/// <summary>
+/// Represents a double-ended queue (deque) that allows efficient insertion and removal 
+/// of elements at both ends using a circular buffer implementation.
+/// </summary>
+/// <typeparam name="T">The type of elements stored in the deque.</typeparam>
 internal class Deque<T> : IEnumerable<T>
 {
 	private const int DefaultCapacity = 4;
@@ -179,6 +184,9 @@ internal class Deque<T> : IEnumerable<T>
 	public void CopyTo(T[] array)
 	{
 		ArgumentNullException.ThrowIfNull(array);
+		if (Count == 0)
+			return; // Nothing to copy.
+
 		if (array.Length < Count)
 			throw new ArgumentException("Destination array is not large enough.", nameof(array));
 

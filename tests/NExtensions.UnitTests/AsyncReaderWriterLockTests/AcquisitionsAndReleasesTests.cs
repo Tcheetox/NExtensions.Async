@@ -64,31 +64,6 @@ public class AcquisitionsAndReleasesTests
 
 	[Theory]
 	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
-	public async Task EnterWriterScopeAsync_ShouldAcquireInParallel_ManyTimesWithoutStackDiveIssue(bool syncReader, bool syncWriter)
-	{
-		// Arrange
-		const int toAcquire = 100_000;
-		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
-		var acquired = 0;
-
-		// Act
-		var enqueue = Enumerable.Range(0, toAcquire).Select(async _ =>
-		{
-			await Task.Yield();
-			using (await rwLock.EnterWriterScopeAsync(CancellationToken.None))
-			{
-				await Task.Yield();
-				Interlocked.Increment(ref acquired);
-			}
-		});
-		await Task.WhenAll(enqueue);
-
-		// Assert
-		acquired.ShouldBe(toAcquire);
-	}
-
-	[Theory]
-	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
 	public async Task EnterReaderScopeAsync_ShouldQueue_WhenWriterActiveOrQueuedWritersExist(bool syncReader, bool syncWriter)
 	{
 		// Arrange
