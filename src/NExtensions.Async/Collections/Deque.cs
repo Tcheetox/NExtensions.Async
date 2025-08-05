@@ -169,10 +169,10 @@ internal class Deque<T> : IEnumerable<T>
 			{
 				Array.Clear(_buffer, _head, Count);
 			}
-			else if (Count > 0)
+			else
 			{
 				Array.Clear(_buffer, _head, _buffer.Length - _head);
-				Array.Clear(_buffer, 0, _buffer.Length);
+				Array.Clear(_buffer, 0, _tail);
 			}
 		}
 
