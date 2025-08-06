@@ -1,0 +1,34 @@
+name: Publish Package to private https://nuget.thekecha.com
+
+on:
+    workflow_dispatch:
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: |
+                      6.0.x
+                      7.0.x
+                      8.0.x
+            - name: Restore dependencies
+              run: dotnet restore
+            - name: Build
+              run: dotnet build --configuration Release --no-restore
+            - name: Run tests
+              run: dotnet test --configuration Release --no-build --verbosity normal
+            - name: Pack
+              run: dotnet pack --configuration Release --no-build
+
+            - name: Publish to private https://nuget.thekecha.com
+              run: |
+                  dotnet nuget push "**/*.nupkg" \
+                    --source https://nuget.thekecha.com/v3/index.json \
+                    --api-key ${{ secrets.NUGET_KECHA_APIKEY }}

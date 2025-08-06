@@ -1,13 +1,17 @@
 ﻿using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
+using NExtensions.Benchmarking.Collections;
 using NExtensions.Benchmarking.LazyAsync;
+using NExtensions.Benchmarking.LockAsync;
+using NExtensions.Benchmarking.ReadAndWriteLockAsync;
 using Perfolizer.Horology;
 
 namespace NExtensions.Benchmarking;
 
 internal class Program
 {
+	// TODO: review naming of methods in Benchmarks.
 	private static async Task Main(string[] args)
 	{
 #if DEBUG
@@ -19,11 +23,11 @@ internal class Program
 				.WithOption(ConfigOptions.DisableLogFile, true)
 				.WithSummaryStyle(SummaryStyle.Default.WithTimeUnit(TimeUnit.Millisecond));
 
-		//BenchmarkRunner.Run<DequeBenchmark>(config);
-		//BenchmarkRunner.Run<RwLockBenchmarkDemo>(config);
+		BenchmarkRunner.Run<DequeBenchmark>(config);
+		BenchmarkRunner.Run<RwLockBenchmarkDemo>(config);
 		BenchmarkRunner.Run<LazyBenchmarkDemo>(config);
-		//	BenchmarkRunner.Run<LockBenchmark>(config);
-		//BenchmarkRunner.Run<LockBenchmarkDemo>(config);
-		await ValueTask.CompletedTask;
+		BenchmarkRunner.Run<LockBenchmarkDemo>(config);
+		
+		await Task.CompletedTask;
 	}
 }
