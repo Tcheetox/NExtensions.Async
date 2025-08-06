@@ -1,4 +1,4 @@
-name: Publish Package to private https://nuget.thekecha.com
+name: Private publish
 
 on:
     workflow_dispatch:
@@ -25,10 +25,10 @@ jobs:
             - name: Run tests
               run: dotnet test --configuration Release --no-build --verbosity normal
             - name: Pack
-              run: dotnet pack --configuration Release --no-build
+              run: dotnet pack src/NExtensions.Async/NExtensions.Async.csproj --configuration Release --no-build
 
             - name: Publish to private https://nuget.thekecha.com
               run: |
-                  dotnet nuget push "**/*.nupkg" \
+                  dotnet nuget push "src/NExtensions.Async/bin/Release/*.nupkg" \
                     --source https://nuget.thekecha.com/v3/index.json \
                     --api-key ${{ secrets.NUGET_KECHA_APIKEY }}

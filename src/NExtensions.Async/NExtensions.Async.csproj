@@ -8,7 +8,7 @@
 
     <PropertyGroup>
         <PackageId>NExtensions.Async</PackageId>
-        <Version>0.9.0</Version>
+        <Version>0.9.1</Version>
         <Authors>Kévin Renier</Authors>
         <Description>High-performance async synchronization primitives including AsyncReaderWriterLock, AsyncLazy, and AsyncLock for modern .NET applications.</Description>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -21,7 +21,12 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Copyright>Copyright © Kévin Renier 2025</Copyright>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="../../README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
     
     <ItemGroup>
         <InternalsVisibleTo Include="NExtensions.UnitTests"/>
