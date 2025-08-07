@@ -27,7 +27,7 @@ public class LazyBenchmarkDemo
 	}
 
 	[Benchmark(Baseline = true)]
-	public async Task Lazy_WithExecutionAndPublication()
+	public async Task Lazy_ExecutionAndPublication()
 	{
 		var lazy = new Lazy<Task<int>>(() => GetAfterAsync(Wait, CancellationToken.None));
 		if (Parallelism == 1)
@@ -41,7 +41,7 @@ public class LazyBenchmarkDemo
 	}
 
 	[Benchmark]
-	public async Task AsyncExLazy_WithExecutionAndPublication()
+	public async Task AsyncExLazy_ExecutionAndPublication()
 	{
 		var lazy = new AsyncEx.AsyncLazy<int>(() => GetAfterAsync(Wait, CancellationToken.None));
 		if (Parallelism == 1)
@@ -55,7 +55,7 @@ public class LazyBenchmarkDemo
 	}
 
 	[Benchmark]
-	public async Task AsyncLazy_WithExecutionAndPublication()
+	public async Task AsyncLazy_ExecutionAndPublication()
 	{
 		var lazy = new AsyncLazy<int>(() => GetAfterAsync(Wait, CancellationToken.None));
 		if (Parallelism == 1)

@@ -11,8 +11,6 @@ namespace NExtensions.Benchmarking;
 
 internal class Program
 {
-	// TODO: review naming of methods in Benchmarks.
-	// TODO: missing some public xml comments.
 	private static async Task Main(string[] args)
 	{
 #if DEBUG
@@ -28,7 +26,7 @@ internal class Program
 		BenchmarkRunner.Run<RwLockBenchmarkDemo>(config);
 		BenchmarkRunner.Run<LazyBenchmarkDemo>(config);
 		BenchmarkRunner.Run<LockBenchmarkDemo>(config);
-		
+
 		await Task.CompletedTask;
 	}
 }

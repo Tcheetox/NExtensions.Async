@@ -66,7 +66,7 @@ public sealed class AsyncLock
 			var waiter = Rent();
 			_waiterQueue.AddLast(waiter);
 			if (cancellationToken.CanBeCanceled)
-				waiter.SetCancellation(cancellationToken); // In case it's cancelled the callback will be run synchronously, hence the waiter must be in the queue! 
+				waiter.SetCancellation(cancellationToken); // In case it's canceled, the callback will be run synchronously; hence the waiter must be in the queue! 
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
@@ -78,8 +78,8 @@ public sealed class AsyncLock
 		lock (_sync)
 		{
 			Debug.Assert(_active, "Release called only when the lock is currently held, even if cancelled.");
-			// Either the waiter was not cancelled (thus attempt to wake the next waiter in line), or it was cancelled.
-			// In the latter case, if the cancelled waiter is in the queue and can be removed it means there's still a legit lock holder.
+			// Either the waiter was not canceled (thus attempt to wake the next waiter in line), or it was canceled.
+			// In the latter case, if the canceled waiter is in the queue and can be removed, it means there's still a legit lock holder.
 			// Otherwise, it means the waiter was scheduled to acquire the lock but the SetException won the race, hence wake up the next waiter.
 			if (cancelledWaiter is not null && _waiterQueue.Remove(cancelledWaiter))
 				return;
@@ -97,6 +97,16 @@ public sealed class AsyncLock
 	{
 		private readonly AsyncLock _asyncLock;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Releaser"/> struct associated with the specified <see cref="AsyncLock"/>.
+		/// This constructor is used internally by <see cref="AsyncLock"/> when a thread successfully acquires the lock.
+		/// The created <see cref="Releaser"/> must be disposed to release the lock and allow other threads to proceed.
+		/// </summary>
+		/// <param name="asyncLock">The <see cref="AsyncLock"/> instance that this <see cref="Releaser"/> will manage.</param>
+		/// <remarks>
+		/// This struct is not intended for direct instantiation. It is returned by <see cref="EnterScopeAsync"/> when the lock is acquired.
+		/// Disposing the <see cref="Releaser"/> releases the lock. Failure to dispose it will prevent other threads from acquiring the lock.
+		/// </remarks>
 		public Releaser(AsyncLock asyncLock)
 		{
 			_asyncLock = asyncLock;

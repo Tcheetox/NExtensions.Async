@@ -1,0 +1,34 @@
+name: Public publish
+
+on:
+    workflow_dispatch:
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: |
+                      6.0.x
+                      7.0.x
+                      8.0.x
+            - name: Restore dependencies
+              run: dotnet restore
+            - name: Build
+              run: dotnet build --configuration Release --no-restore
+            - name: Run tests
+              run: dotnet test --configuration Release --no-build --verbosity normal
+            - name: Pack
+              run: dotnet pack src/NExtensions.Async/NExtensions.Async.csproj --configuration Release --no-build
+
+            - name: Publish to public https://api.nuget.org
+              run: |
+                  dotnet nuget push "src/NExtensions.Async/bin/Release/*.nupkg" \
+                    --source https://api.nuget.org/v3/index.json \
+                    --api-key ${{ secrets.NUGET_APIKEY }}

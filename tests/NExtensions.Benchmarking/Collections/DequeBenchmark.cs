@@ -25,6 +25,7 @@ public class DequeBenchmark
 	[Benchmark]
 	public void AddQueue()
 	{
+		// ReSharper disable once CollectionNeverQueried.Local
 		var queue = new Queue<int>();
 		for (var i = 0; i < Size; i++)
 			queue.Enqueue(i);

@@ -33,7 +33,7 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 	}
 
 	[Benchmark]
-	public async Task ListWithAsyncExReaderWriterLock()
+	public async Task AsyncExReaderWriterLock()
 	{
 		if (Continuation != ContinuationMode.AsyncReadWrite)
 			throw new InvalidBenchmarkException("Noop.");
@@ -76,7 +76,7 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 	}
 
 	[Benchmark]
-	public async Task ListWithAsyncReaderWriterLock()
+	public async Task AsyncReaderWriterLock()
 	{
 		var locker = GetAsyncReaderWriterLock();
 		var enqueued = 0;

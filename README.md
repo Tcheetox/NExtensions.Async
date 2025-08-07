@@ -9,17 +9,17 @@
 
 **NExtensions.Async** provides a collection of essential async synchronization primitives designed to make concurrent programming safer and more intuitive:
 
--   **🔒 AsyncLock** - Mutual exclusion for async contexts
--   **📚 AsyncReaderWriterLock** - Concurrent reads, exclusive writes
--   **⚡ AsyncLazy** - Thread-safe lazy initialization for async operations
+- **🔒 AsyncLock** - Mutual exclusion for async contexts
+- **📚 AsyncReaderWriterLock** - Concurrent reads, exclusive writes
+- **⚡ AsyncLazy** - Thread-safe lazy initialization for async operations
 
 ## 🎯 Why Choose NExtensions.Async?
 
--   **Performance First** - Optimized for high-throughput applications
--   **Modern API** - Built for async/await patterns
--   **Multi-Target** - Supports .NET 6, 7, and 8
--   **Zero Dependencies** - Lightweight and focused
--   **Production Ready** - Thoroughly tested and benchmarked
+- **Performance First** - Optimized for high-throughput applications
+- **Modern API** - Built for async/await patterns
+- **Multi-Target** - Supports .NET 6, 7, and 8
+- **Zero Dependencies** - Lightweight and focused
+- **Production Ready** - Thoroughly tested and benchmarked
 
 ## 🚀 Quick Start
 

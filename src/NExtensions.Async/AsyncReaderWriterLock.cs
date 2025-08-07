@@ -86,7 +86,7 @@ public sealed class AsyncReaderWriterLock
 			var waiter = Rent(ReleaseMode.Reader);
 			_readerQueue.AddLast(waiter);
 			if (cancellationToken.CanBeCanceled)
-				waiter.SetCancellation(cancellationToken); // In case it's cancelled the callback will be run synchronously, hence the waiter must be in the queue!
+				waiter.SetCancellation(cancellationToken); // In case it's canceled, the callback will be run synchronously; hence the waiter must be in the queue!
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
@@ -114,7 +114,7 @@ public sealed class AsyncReaderWriterLock
 			var waiter = Rent(ReleaseMode.Writer);
 			_writerQueue.AddLast(waiter);
 			if (cancellationToken.CanBeCanceled) // Avoid binding useless tokens.
-				waiter.SetCancellation(cancellationToken); // In case it's cancelled the callback will be run synchronously, hence the waiter must be in the queue!
+				waiter.SetCancellation(cancellationToken); // In case it's canceled, the callback will be run synchronously; hence the waiter must be in the queue!
 			return new ValueTask<Releaser>(waiter, waiter.Version);
 		}
 	}
@@ -202,6 +202,17 @@ public sealed class AsyncReaderWriterLock
 		private readonly AsyncReaderWriterLock _lock;
 		private readonly ReleaseMode _mode;
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Releaser"/> struct with the specified lock and release mode.
+		/// This constructor is typically used internally by <see cref="AsyncReaderWriterLock"/> when a reader or writer scope is acquired.
+		/// The created <see cref="Releaser"/> must be disposed to release the associated lock and wake waiting operations.
+		/// </summary>
+		/// <param name="rwLock">The <see cref="AsyncReaderWriterLock"/> instance associated with this <see cref="Releaser"/>.</param>
+		/// <param name="mode">The <see cref="ReleaseMode"/> indicating whether this <see cref="Releaser"/> is for a reader or writer.</param>
+		/// <remarks>
+		/// This struct is not intended to be instantiated directly. Instead, it is returned by <see cref="EnterReaderScopeAsync"/> or <see cref="EnterWriterScopeAsync"/>.
+		/// Disposing the <see cref="Releaser"/> releases the lock and allows waiting threads to proceed.
+		/// </remarks>
 		public Releaser(AsyncReaderWriterLock rwLock, ReleaseMode mode)
 		{
 			_lock = rwLock;
@@ -270,8 +281,8 @@ public sealed class AsyncReaderWriterLock
 		{
 			_mode = mode;
 			// The safe default is asynchronous continuations.
-			// It helps with reentrancy and prevents the consumers to hijack the thread.
-			// For instance, the latter could prevent some readers to be notified as soon as the writer has finished.
+			// It helps with reentrancy and prevents consumers from hijacking the thread.
+			// For instance, the latter could prevent some readers from being notified as soon as the writer has finished.
 			_core.RunContinuationsAsynchronously = mode switch
 			{
 				ReleaseMode.Writer => !_rwLock._allowSynchronousWriterContinuations,
