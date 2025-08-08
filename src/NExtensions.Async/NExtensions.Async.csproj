@@ -8,7 +8,7 @@
 
     <PropertyGroup>
         <PackageId>NExtensions.Async</PackageId>
-        <Version>0.9.4</Version>
+        <Version>0.9.9</Version>
         <Authors>Kévin Renier</Authors>
         <Description>High-performance async synchronization primitives including AsyncReaderWriterLock, AsyncLazy, and AsyncLock for modern .NET applications.</Description>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
