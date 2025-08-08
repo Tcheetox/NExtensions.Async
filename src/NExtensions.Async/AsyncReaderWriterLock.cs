@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.Tasks.Sources;
 using NExtensions.Async.Collections;
 
@@ -30,10 +31,10 @@ public sealed class AsyncReaderWriterLock
 	private readonly bool _allowSynchronousReaderContinuations;
 	private readonly bool _allowSynchronousWriterContinuations;
 	private readonly Deque<Waiter> _readerQueue = new(deepClear: false);
-
 	private readonly object _sync = new();
-	private readonly Stack<Waiter> _waiterPool = new();
+	private readonly ConcurrentStack<Waiter> _waiterPool = new();
 	private readonly Deque<Waiter> _writerQueue = new(deepClear: false);
+
 	private int _readerCount;
 	private bool _writerActive;
 
@@ -317,7 +318,6 @@ public sealed class AsyncReaderWriterLock
 
 	private Waiter Rent(ReleaseMode mode)
 	{
-		// This method must be called within the main lock.
 		if (!_waiterPool.TryPop(out var waiter))
 			waiter = new Waiter(this);
 		waiter.SetMode(mode);
@@ -326,10 +326,7 @@ public sealed class AsyncReaderWriterLock
 
 	private void Return(Waiter waiter)
 	{
-		lock (_sync)
-		{
-			_waiterPool.Push(waiter);
-		}
+		_waiterPool.Push(waiter);
 	}
 
 	#endregion

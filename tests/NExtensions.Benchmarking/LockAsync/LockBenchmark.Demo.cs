@@ -9,18 +9,18 @@ using AsyncEx = Nito.AsyncEx;
 // ReSharper disable UnusedMember.Global
 namespace NExtensions.Benchmarking.LockAsync;
 
-[SimpleJob(warmupCount: 2, iterationCount: 8)]
+//[SimpleJob(warmupCount: 2, iterationCount: 8)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
 public class LockBenchmarkDemo
 {
-	[Params(100_000)]
-	public int Count { get; set; } = 100_000;
+	[Params(150_000)]
+	public int Hits { get; set; } = 100_000;
 
-	[Params(1, 10)]
+	[Params(1, 20)]
 	public int Parallelism { get; set; } = 2;
 
-	[Params("yield", "sync")]
+	[Params("yield")]
 	public string Wait { get; set; } = "yield";
 
 
@@ -31,7 +31,7 @@ public class LockBenchmarkDemo
 
 		if (Parallelism == 1)
 		{
-			for (var i = 0; i < Count; i++)
+			for (var i = 0; i < Hits; i++)
 			{
 				try
 				{
@@ -50,7 +50,7 @@ public class LockBenchmarkDemo
 		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
 		await Parallel.ForAsync(0, Parallelism, options, async (_, ct) =>
 		{
-			for (var i = 0; i < Count; i++)
+			for (var i = 0; i < Hits; i++)
 			{
 				try
 				{
@@ -72,7 +72,7 @@ public class LockBenchmarkDemo
 
 		if (Parallelism == 1)
 		{
-			for (var i = 0; i < Count; i++)
+			for (var i = 0; i < Hits; i++)
 			{
 				using (await sync.LockAsync())
 				{
@@ -86,7 +86,7 @@ public class LockBenchmarkDemo
 		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
 		await Parallel.ForAsync(0, Parallelism, options, async (_, ct) =>
 		{
-			for (var i = 0; i < Count; i++)
+			for (var i = 0; i < Hits; i++)
 			{
 				using (await sync.LockAsync(ct))
 				{
@@ -103,7 +103,7 @@ public class LockBenchmarkDemo
 
 		if (Parallelism == 1)
 		{
-			for (var i = 0; i < Count; i++)
+			for (var i = 0; i < Hits; i++)
 			{
 				using (await sync.EnterScopeAsync())
 				{
@@ -117,7 +117,7 @@ public class LockBenchmarkDemo
 		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
 		await Parallel.ForAsync(0, Parallelism, options, async (_, ct) =>
 		{
-			for (var i = 0; i < Count; i++)
+			for (var i = 0; i < Hits; i++)
 			{
 				using (await sync.EnterScopeAsync(ct))
 				{

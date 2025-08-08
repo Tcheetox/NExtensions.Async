@@ -12,11 +12,11 @@ namespace NExtensions.Benchmarking.LazyAsync;
 [ThreadingDiagnoser]
 public class LazyBenchmarkDemo
 {
-	[Params(1, 10, 100)]
+	[Params(1, 10, 200)]
 	public int Parallelism { get; set; } = 1;
 
-	[Params(0, 1)]
-	public int Wait { get; set; } = 1;
+	//[Params(0, 1)]
+	public int Wait { get; set; } = 0;
 
 	private static async Task<int> GetAfterAsync(int after, CancellationToken token = default)
 	{

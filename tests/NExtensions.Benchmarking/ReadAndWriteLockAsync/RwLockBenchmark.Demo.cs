@@ -8,7 +8,7 @@ using BenchmarkDotNet.Attributes;
 // ReSharper disable UnusedMember.Global
 namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 
-[SimpleJob(warmupCount: 3, iterationCount: 10)]
+//[SimpleJob(warmupCount: 3, iterationCount: 10)]
 [MemoryDiagnoser]
 [ThreadingDiagnoser]
 public class RwLockBenchmarkDemo : RwLockBenchmark
@@ -16,10 +16,10 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 	[Params("1/10", "5/10", "10/10", "10/5", "10/1")]
 	public string RW = "1/5";
 
-	[Params(100_000)]
-	public override int Count { get; set; } = 10_000;
+	[Params(150_000)]
+	public override int Hits { get; set; } = 10_000;
 
-	[Params("sync", "yield")]
+	[Params("yield")]
 	public override string Wait { get; set; } = "yield";
 
 	[Params(ContinuationMode.AsyncReadWrite)]
@@ -47,7 +47,7 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 			while (true)
 			{
 				var item = Interlocked.Increment(ref enqueued);
-				if (item > Count) break;
+				if (item > Hits) break;
 
 				using (await locker.WriterLockAsync(ct))
 				{
@@ -63,7 +63,7 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 			while (true)
 			{
 				var current = Interlocked.Increment(ref read);
-				if (current > Count) break;
+				if (current > Hits) break;
 
 				using (await locker.ReaderLockAsync(ct))
 				{
@@ -87,7 +87,7 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 			while (true)
 			{
 				var item = Interlocked.Increment(ref enqueued);
-				if (item > Count) break;
+				if (item > Hits) break;
 
 				using (await locker.EnterWriterScopeAsync(ct))
 				{
@@ -103,7 +103,7 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 			while (true)
 			{
 				var current = Interlocked.Increment(ref read);
-				if (current > Count) break;
+				if (current > Hits) break;
 
 				using (await locker.EnterReaderScopeAsync(ct))
 				{

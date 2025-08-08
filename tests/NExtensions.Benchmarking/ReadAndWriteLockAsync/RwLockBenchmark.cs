@@ -18,7 +18,7 @@ public abstract class RwLockBenchmark
 	}
 
 	[Params(100, 10_000)]
-	public virtual int Count { get; set; } = 10_000;
+	public virtual int Hits { get; set; } = 10_000;
 
 	[Params("yield", "delay", "sync")]
 	public virtual string Wait { get; set; } = "delay";

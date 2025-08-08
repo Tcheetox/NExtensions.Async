@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.Tasks.Sources;
 using NExtensions.Async.Collections;
 
@@ -12,7 +13,7 @@ public sealed class AsyncLock
 {
 	private readonly bool _allowSynchronousContinuations;
 	private readonly object _sync = new();
-	private readonly Stack<Waiter> _waiterPool = new();
+	private readonly ConcurrentStack<Waiter> _waiterPool = new();
 	private readonly Deque<Waiter> _waiterQueue = new(deepClear: false);
 
 	private bool _active;
@@ -196,7 +197,6 @@ public sealed class AsyncLock
 
 	private Waiter Rent()
 	{
-		// This method must be called within the main lock.
 		if (!_waiterPool.TryPop(out var waiter))
 			waiter = new Waiter(this);
 		return waiter;
@@ -204,10 +204,7 @@ public sealed class AsyncLock
 
 	private void Return(Waiter waiter)
 	{
-		lock (_sync)
-		{
-			_waiterPool.Push(waiter);
-		}
+		_waiterPool.Push(waiter);
 	}
 
 	#endregion
