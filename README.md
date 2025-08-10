@@ -166,30 +166,45 @@ BenchmarkDotNet v0.15.1, Windows 11 (10.0.26100.4770/24H2/2024Update/HudsonValle
 
 ### AsyncLock
 
-| Method                              | Parallelism |          Mean |     Error | Compl. Work Items | Lock Contentions |  Allocated | Alloc Ratio |
-|-------------------------------------|-------------|--------------:|----------:|------------------:|-----------------:|-----------:|------------:|
-| **Lazy_ExecutionAndPublication**    | **1**       | **0.0007 ms** |  **0.00** |        **0.0200** |       **1.0189** | **0.0000** |   **386 B** |        **1.00** |
-| AsyncExLazy_ExecutionAndPublication | 1           |     0.0011 ms | 0.0000 ms |            2.0009 |           0.0000 |      696 B |        1.80 |
-| AsyncLazy_ExecutionAndPublication   | 1           |     0.0008 ms | 0.0000 ms |            1.0274 |           0.0000 |      708 B |        1.83 |
-|                                     |             |               |           |                   |                  |            |             |
-| **Lazy_ExecutionAndPublication**    | **10**      | **0.0025 ms** |  **0.03** |        **0.0648** |       **6.7474** | **0.0001** |  **1254 B** |        **1.00** |
-| AsyncExLazy_ExecutionAndPublication | 10          |     0.0035 ms | 0.0000 ms |           11.1279 |           0.0002 |     1968 B |        1.57 |
-| AsyncLazy_ExecutionAndPublication   | 10          |     0.0025 ms | 0.0000 ms |            6.5738 |           0.0000 |     1594 B |        1.27 |
-|                                     |             |               |           |                   |                  |            |             |
-| **Lazy_ExecutionAndPublication**    | **200**     | **0.0160 ms** |  **0.01** |        **0.0610** |      **12.3357** | **0.0050** |  **1341 B** |        **1.00** |
-| AsyncExLazy_ExecutionAndPublication | 200         |     0.0431 ms | 0.0009 ms |           18.9797 |           1.7889 |     2231 B |        1.66 |
-| AsyncLazy_ExecutionAndPublication   | 200         |     0.0160 ms | 0.0001 ms |           12.8473 |           0.0040 |     1784 B |        1.33 |
+| Method            | Hits       | Parallelism | Wait      |            Mean |         Error |        StdDev | Completed Work Items | Lock Contentions |           Gen0 |          Gen1 |      Allocated |
+|-------------------|------------|-------------|-----------|----------------:|--------------:|--------------:|---------------------:|-----------------:|---------------:|--------------:|---------------:|
+| **SemaphoreSlim** | **150000** | **1**       | **yield** |    **57.31 ms** |  **0.256 ms** |  **0.239 ms** |      **151662.2222** |            **-** |   **888.8889** |         **-** |   **16.02 MB** |
+| AsyncExLock       | 150000     | 1           | yield     |        61.42 ms |      0.445 ms |      0.416 ms |          150544.0000 |                - |      3444.4444 |             - |        61.8 MB |
+| AsyncLock         | 150000     | 1           | yield     |        57.15 ms |      0.163 ms |      0.152 ms |          151519.3333 |                - |       888.8889 |             - |       16.02 MB |
+| **SemaphoreSlim** | **150000** | **20**      | **yield** | **3,502.90 ms** | **49.994 ms** | **41.747 ms** |     **6041664.0000** |      **48.0000** | **77000.0000** | **1000.0000** | **1373.29 MB** |
+| AsyncExLock       | 150000     | 20          | yield     |     3,173.30 ms |     35.980 ms |     31.896 ms |         9101322.0000 |          81.0000 |    135000.0000 |     7000.0000 |     2426.15 MB |
+| AsyncLock         | 150000     | 20          | yield     |     2,507.91 ms |     34.059 ms |     31.859 ms |         6032875.0000 |           6.0000 |     23000.0000 |             - |         412 MB |
 
 ### AsyncReaderWriterLock
 
-| Method            | Hits       | Parallelism | Wait      |            Mean |         Error | Compl. Work Items | Lock Contentions |           Gen0 |      Allocated |
-|-------------------|------------|-------------|-----------|----------------:|--------------:|------------------:|-----------------:|---------------:|---------------:|
-| **SemaphoreSlim** | **150000** | **1**       | **yield** |    **57.31 ms** |  **0.256 ms** |   **151662.2222** |            **-** |   **888.8889** |   **16.02 MB** |
-| AsyncExLock       | 150000     | 1           | yield     |        61.42 ms |      0.445 ms |       150544.0000 |                - |      3444.4444 |        61.8 MB |
-| AsyncLock         | 150000     | 1           | yield     |        57.15 ms |      0.163 ms |       151519.3333 |                - |       888.8889 |       16.02 MB |
-| **SemaphoreSlim** | **150000** | **20**      | **yield** | **3,502.90 ms** | **49.994 ms** |  **6041664.0000** |      **48.0000** | **77000.0000** | **1373.29 MB** |
-| AsyncExLock       | 150000     | 20          | yield     |     3,173.30 ms |     35.980 ms |      9101322.0000 |          81.0000 |    135000.0000 |     2426.15 MB |
-| AsyncLock         | 150000     | 20          | yield     |     2,507.91 ms |     34.059 ms |      6032875.0000 |           6.0000 |     23000.0000 |         412 MB |
+| Method                      | RW        | Hits       | Wait      | Continuation       |         Mean |       Error |       StdDev |       Median |           Gen0 | Completed Work Items | Lock Contentions |     Allocated |
+|-----------------------------|-----------|------------|-----------|--------------------|-------------:|------------:|-------------:|-------------:|---------------:|---------------------:|-----------------:|--------------:|
+| **AsyncExReaderWriterLock** | **1/10**  | **150000** | **yield** | **AsyncReadWrite** | **245.6 ms** | **4.87 ms** |  **4.78 ms** | **244.5 ms** | **11000.0000** |      **604780.0000** |       **9.0000** | **208.29 MB** |
+| AsyncReaderWriterLock       | 1/10      | 150000     | yield     | AsyncReadWrite     |     197.7 ms |     3.83 ms |      4.98 ms |     196.8 ms |      2000.0000 |          453012.0000 |           1.0000 |      36.63 MB |
+| **AsyncExReaderWriterLock** | **10/1**  | **150000** | **yield** | **AsyncReadWrite** | **204.8 ms** | **4.03 ms** |  **7.67 ms** | **205.4 ms** | **10000.0000** |      **517546.0000** |    **3434.0000** | **191.23 MB** |
+| AsyncReaderWriterLock       | 10/1      | 150000     | yield     | AsyncReadWrite     |     173.2 ms |     3.46 ms |      9.47 ms |     172.6 ms |      2000.0000 |          453465.6667 |         387.3333 |      37.95 MB |
+| **AsyncExReaderWriterLock** | **10/10** | **150000** | **yield** | **AsyncReadWrite** | **250.8 ms** | **5.01 ms** | **11.11 ms** | **252.5 ms** | **11000.0000** |      **606837.0000** |     **698.0000** |  **208.3 MB** |
+| AsyncReaderWriterLock       | 10/10     | 150000     | yield     | AsyncReadWrite     |     179.2 ms |     3.54 ms |      4.73 ms |     179.2 ms |      2000.0000 |          454672.0000 |         171.0000 |      36.63 MB |
+| **AsyncExReaderWriterLock** | **10/5**  | **150000** | **yield** | **AsyncReadWrite** | **250.5 ms** | **4.99 ms** |  **8.47 ms** | **246.6 ms** | **11000.0000** |      **605912.0000** |     **171.0000** | **208.29 MB** |
+| AsyncReaderWriterLock       | 10/5      | 150000     | yield     | AsyncReadWrite     |     179.9 ms |     3.49 ms |      3.88 ms |     180.3 ms |      2000.0000 |          454856.3333 |         187.6667 |      36.63 MB |
+| **AsyncExReaderWriterLock** | **5/10**  | **150000** | **yield** | **AsyncReadWrite** | **238.6 ms** | **4.30 ms** |  **4.22 ms** | **237.7 ms** | **11000.0000** |      **607103.0000** |      **77.0000** | **208.29 MB** |
+| AsyncReaderWriterLock       | 5/10      | 150000     | yield     | AsyncReadWrite     |     168.2 ms |     3.26 ms |      3.62 ms |     168.5 ms |      2000.0000 |          455618.6667 |          12.6667 |      36.63 MB |
+
+### AsyncLazy
+
+| Method                              | Parallelism |          Mean |         Error |        StdDev |    Ratio |  RatioSD |       Gen0 | Completed Work Items | Lock Contentions |  Allocated | Alloc Ratio |
+|-------------------------------------|-------------|--------------:|--------------:|--------------:|---------:|---------:|-----------:|---------------------:|-----------------:|-----------:|------------:|
+| **Lazy_ExecutionAndPublication**    | **1**       | **0.0007 ms** | **0.0000 ms** | **0.0000 ms** | **1.00** | **0.00** | **0.0200** |           **1.0189** |       **0.0000** |  **386 B** |    **1.00** |
+| AsyncExLazy_ExecutionAndPublication | 1           |     0.0011 ms |     0.0000 ms |     0.0000 ms |     1.61 |     0.01 |     0.0362 |               2.0009 |           0.0000 |      696 B |        1.80 |
+| AsyncLazy_ExecutionAndPublication   | 1           |     0.0008 ms |     0.0000 ms |     0.0000 ms |     1.14 |     0.01 |     0.0372 |               1.0274 |           0.0000 |      708 B |        1.83 |
+|                                     |             |               |               |               |          |          |            |                      |                  |            |             |
+| **Lazy_ExecutionAndPublication**    | **10**      | **0.0025 ms** | **0.0000 ms** | **0.0001 ms** | **1.00** | **0.03** | **0.0648** |           **6.7474** |       **0.0001** | **1254 B** |    **1.00** |
+| AsyncExLazy_ExecutionAndPublication | 10          |     0.0035 ms |     0.0000 ms |     0.0000 ms |     1.40 |     0.03 |     0.1030 |              11.1279 |           0.0002 |     1968 B |        1.57 |
+| AsyncLazy_ExecutionAndPublication   | 10          |     0.0025 ms |     0.0000 ms |     0.0001 ms |     1.01 |     0.03 |     0.0839 |               6.5738 |           0.0000 |     1594 B |        1.27 |
+|                                     |             |               |               |               |          |          |            |                      |                  |            |             |
+| **Lazy_ExecutionAndPublication**    | **200**     | **0.0160 ms** | **0.0001 ms** | **0.0001 ms** | **1.00** | **0.01** | **0.0610** |          **12.3357** |       **0.0050** | **1341 B** |    **1.00** |
+| AsyncExLazy_ExecutionAndPublication | 200         |     0.0431 ms |     0.0009 ms |     0.0015 ms |     2.68 |     0.09 |     0.0610 |              18.9797 |           1.7889 |     2231 B |        1.66 |
+| AsyncLazy_ExecutionAndPublication   | 200         |     0.0160 ms |     0.0001 ms |     0.0001 ms |     0.99 |     0.01 |     0.0916 |              12.8473 |           0.0040 |     1784 B |        1.33 |
 
 ## 📄 License
 
