@@ -15,7 +15,7 @@ Inspired from the awesome [library](https://www.nuget.org/packages/Nito.AsyncEx)
 - **⏳ AsyncLazy<T>**: Thread-safe asynchronous lazy initialization with multiple safety modes
 - **Cancellation Support**: Thorough `CancellationToken` support across all primitives
 - **Zero dependencies**: No external dependencies
-- **Modern .NET**: Supports .NET 6.0, 7.0, and 8.0 with nullable reference types
+- **Modern .NET**: Supports .NET 6.0, 7.0, 8.0, and 9.0 with nullable reference types
 
 ## Installation
 
