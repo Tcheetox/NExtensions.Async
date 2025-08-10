@@ -12,9 +12,14 @@ namespace NExtensions.Async;
 public sealed class AsyncLock
 {
 	private readonly bool _allowSynchronousContinuations;
-	private readonly object _sync = new();
 	private readonly ConcurrentStack<Waiter> _waiterPool = new();
 	private readonly Deque<Waiter> _waiterQueue = new(deepClear: false);
+
+#if NET9_0_OR_GREATER
+	private readonly Lock _sync = new();
+#else
+	private readonly object _sync = new();
+#endif
 
 	private bool _active;
 

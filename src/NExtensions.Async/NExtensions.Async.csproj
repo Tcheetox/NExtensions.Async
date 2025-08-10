@@ -1,20 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+        <TargetFrameworks>net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <PropertyGroup>
         <PackageId>NExtensions.Async</PackageId>
-        <Version>1.0.0</Version>
+        <Version>1.1.0</Version>
         <Authors>Kévin Renier</Authors>
         <Description>High-performance async synchronization primitives including AsyncReaderWriterLock, AsyncLazy, and AsyncLock for modern .NET applications.</Description>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <IncludeSymbols>true</IncludeSymbols>
         <PackageTags>async;concurrency;threading;lock;synchronization;dotnet;csharp;asynclock;readerwriter;lazy</PackageTags>
-        <PackageReleaseNotes>Initial release with AsyncReaderWriterLock, AsyncLazy, and AsyncLock implementations.</PackageReleaseNotes>
+        <PackageReleaseNotes>
+            Added .NET 9 support including System.Threading.Lock integration.
+            Continued support for AsyncReaderWriterLock, AsyncLazy, and AsyncLock.
+            Enhanced compatibility with the latest .NET runtime.
+        </PackageReleaseNotes>
         <PackageProjectUrl>https://github.com/Tcheetox/NExtensions.Async</PackageProjectUrl>
         <RepositoryUrl>https://github.com/Tcheetox/NExtensions.Async</RepositoryUrl>
         <RepositoryType>git</RepositoryType>

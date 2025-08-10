@@ -31,9 +31,14 @@ public sealed class AsyncReaderWriterLock
 	private readonly bool _allowSynchronousReaderContinuations;
 	private readonly bool _allowSynchronousWriterContinuations;
 	private readonly Deque<Waiter> _readerQueue = new(deepClear: false);
-	private readonly object _sync = new();
-	private readonly ConcurrentStack<Waiter> _waiterPool = new();
 	private readonly Deque<Waiter> _writerQueue = new(deepClear: false);
+	private readonly ConcurrentStack<Waiter> _waiterPool = new();
+
+#if NET9_0_OR_GREATER
+	private readonly Lock _sync = new();
+#else
+	private readonly object _sync = new();
+#endif
 
 	private int _readerCount;
 	private bool _writerActive;
