@@ -13,6 +13,6 @@ public static class AsyncLockFactory
 
 	public static AsyncLock Create(bool syncContinuation)
 	{
-		return new AsyncLock(syncContinuation);
+		return syncContinuation ? new AsyncLock(true) : new AsyncLock();
 	}
 }

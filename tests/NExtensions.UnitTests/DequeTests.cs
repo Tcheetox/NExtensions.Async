@@ -1,4 +1,5 @@
-﻿using NExtensions.Async.Collections;
+﻿using System.Collections;
+using NExtensions.Async.Collections;
 using Shouldly;
 
 namespace NExtensions.UnitTests;
@@ -361,6 +362,33 @@ public class DequeTests
 	}
 
 	[Fact]
+	public void Remove_ShouldShiftElementsFromTailSide_WhenTailIsSmallerThanHead()
+	{
+		// Arrange
+		var deque = new Deque<string>(6);
+
+		// Add elements: [A, B, C, D, E]
+		deque.AddLast("A");
+		deque.AddLast("B");
+		deque.AddLast("C");
+		deque.AddLast("D");
+		deque.AddLast("E");
+		var initialCount = deque.Count;
+
+		// Act
+		var removed = deque.Remove("D");
+
+		// Assert
+		removed.ShouldBeTrue();
+		deque.Count.ShouldBe(initialCount - 1);
+
+		// Verify the remaining elements are in correct order
+		var elements = deque.ToArray();
+		elements.ShouldBe(new[] { "A", "B", "C", "E" });
+		deque.Remove("D").ShouldBeFalse();
+	}
+
+	[Fact]
 	public void Remove_RemoveOnlyItem_WhenDequeHasOneItem()
 	{
 		// Arrange
@@ -467,6 +495,28 @@ public class DequeTests
 		// Assert
 		deque.Count.ShouldBe(1);
 		deque.Single().ShouldBe(42);
+	}
+
+	[Fact]
+	public void Clear_ShouldClearAllElements_WhenHeadLessThanTailAndDeepClearTrue()
+	{
+		var deque = new Deque<string>(4, true);
+
+		// Add elements to create scenario where head < tail and Count > 0
+		deque.AddLast("item1");
+		deque.AddLast("item2");
+		deque.AddLast("item3");
+
+		// Verify preconditions
+		deque.Count.ShouldBeGreaterThan(0);
+
+		// Act
+		deque.Clear();
+
+		// Assert
+		deque.Count.ShouldBe(0);
+		deque.AsEnumerable().ShouldBeEmpty();
+		Should.Throw<InvalidOperationException>(() => deque.RemoveFirst());
 	}
 
 	#endregion
@@ -577,6 +627,7 @@ public class DequeTests
 		deque.AddFirst(0);
 
 		// Act & Assert
+		((IEnumerable)deque).ShouldBe(new[] { 0, 1, 2 });
 		deque.ShouldBe(new[] { 0, 1, 2 });
 	}
 

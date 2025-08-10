@@ -15,6 +15,8 @@ public static class AsyncReaderWriterLockFactory
 
 	public static AsyncReaderWriterLock Create(bool syncReader, bool syncWriter)
 	{
+		if (!syncReader && !syncWriter)
+			return new AsyncReaderWriterLock();
 		return new AsyncReaderWriterLock(syncReader, syncWriter);
 	}
 }
