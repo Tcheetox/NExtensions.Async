@@ -42,7 +42,7 @@ public class AcquisitionsAndReleasesTests
 
 	[Theory]
 	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
-	public async Task EnterWriterScopeAsync_ShouldAcquire_ManyTimesNotStackDiveIssue(bool syncReader, bool syncWriter)
+	public async Task EnterWriterScopeAsync_ShouldAcquireManyTimes_WithoutStackDiveIssue(bool syncReader, bool syncWriter)
 	{
 		// Arrange
 		const int toAcquire = 10_000_000;

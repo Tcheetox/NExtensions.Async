@@ -235,7 +235,7 @@ public sealed class AsyncReaderWriterLock
 		{
 			var disposed = Interlocked.Exchange(ref _disposed, 1);
 			if (disposed == 1)
-				throw new ObjectDisposedException(GetType().FullName);
+				throw new ObjectDisposedException(nameof(Releaser));
 			_lock.Release(_mode);
 		}
 	}
