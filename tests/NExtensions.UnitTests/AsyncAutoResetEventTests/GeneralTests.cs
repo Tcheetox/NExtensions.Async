@@ -69,29 +69,16 @@ public class GeneralTests
 	}
 
 	[Fact]
-	public async Task WaitAsync_ThrowsSomethingn_WhenDisposedAfter()
+	public void WaitAsync_HangsForever_WhenDisposedDuringWait()
 	{
-		var are = new SemaphoreSlim(0);
-		Task.Run(async () =>
-		{
-			await Task.Delay(1000);
-			are.Dispose();
-		});
-		try
-		{
-			await are.WaitAsync();
-		}
-		catch (Exception e)
-		{
-			var t = e;
-		}
-	
-
-	// var autoResetEvent = new AsyncAutoResetEvent(true);
-		//
-		// autoResetEvent.Dispose();
-		// var act = async () => await autoResetEvent.WaitAsync(CancellationToken.None);
-		//
-		// await act.ShouldThrowAsync<ObjectDisposedException>();
+		var autoResetEvent = new AsyncAutoResetEvent(false);
+		
+		var infiniteWait = autoResetEvent.WaitAsync(CancellationToken.None).AsTask();
+		autoResetEvent.Dispose();
+		
+		infiniteWait.IsCanceled.ShouldBeFalse();
+		infiniteWait.IsFaulted.ShouldBeFalse();
+		infiniteWait.IsCompleted.ShouldBeFalse();
+		infiniteWait.Status.ShouldBe(TaskStatus.WaitingForActivation);
 	}
 }
