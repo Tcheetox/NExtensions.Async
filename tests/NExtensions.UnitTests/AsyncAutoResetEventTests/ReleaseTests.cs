@@ -3,6 +3,7 @@ using NExtensions.Async;
 using NExtensions.UnitTests.Utilities;
 using Shouldly;
 
+// ReSharper disable AccessToModifiedClosure
 // ReSharper disable AccessToDisposedClosure
 
 namespace NExtensions.UnitTests.AsyncAutoResetEventTests;
@@ -106,32 +107,14 @@ public class ReleaseTests
 		using var resetEvent = new AsyncAutoResetEvent(false, syncContinuations);
 		using var cts = new CancellationTokenSource(10000);
 		var random = new Random();
-		var setCount = 0;
-		var setTask = ParallelUtility.ForAsync(0, setParallelism, async (_, _) =>
-		{
-			while (!cts.IsCancellationRequested)
-			{
-				resetEvent.Set();
-				Interlocked.Increment(ref setCount);
-				var sleep = random.Next(-1, 25);
-				switch (sleep)
-				{
-					case > 0:
-						await Task.Delay(sleep, CancellationToken.None);
-						break;
-					case 0:
-						await Task.Yield();
-						break;
-				}
-			}
-		});
+		const int maxSleepMs = 15;
 
 		var acquiredCount = 0;
 		var waitTask = ParallelUtility.ForAsync(0, 16, async (_, _) =>
 		{
 			while (!cts.IsCancellationRequested)
 			{
-				var sleep = random.Next(0, 25);
+				var sleep = random.Next(0, maxSleepMs);
 				using var ownCts = new CancellationTokenSource(sleep);
 				using var combined = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ownCts.Token);
 				try
@@ -146,12 +129,88 @@ public class ReleaseTests
 			}
 		});
 
-		await Task.WhenAll(setTask, waitTask);
+		var setCount = 0;
+		var setTask = ParallelUtility.ForAsync(0, setParallelism, async (_, _) =>
+		{
+			while (!cts.IsCancellationRequested)
+			{
+				resetEvent.Set();
+				Interlocked.Increment(ref setCount);
+				var sleep = random.Next(-1, maxSleepMs);
+				switch (sleep)
+				{
+					case > 0:
+						await Task.Delay(sleep, CancellationToken.None);
+						break;
+					case 0:
+						await Task.Yield();
+						break;
+				}
+			}
+		});
 
-		if (setParallelism == 1)
-			acquiredCount.ShouldBe(setCount); // Because in such a scenario no way we can miss a signal!
-		else
+		await Task.WhenAll(setTask, waitTask);
+		var lastAttempt = resetEvent.WaitAsync(CancellationToken.None).AsTask();
+		if (lastAttempt.IsCompletedSuccessfully)
+			Interlocked.Increment(ref acquiredCount);
+
+		if (setParallelism > 1)
 			acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
+		else
+			acquiredCount.ShouldBe(setCount); // Because in such a scenario no way we can miss a signal!
+	}
+
+	[Theory]
+	[InlineData(1)]
+	[InlineData(16)]
+	public async Task Set_ShouldReleaseOneWaitingThreadPerSet_EvenInParallelUnlessCancelled_Comparison(int setParallelism)
+	{
+		using var resetEvent = new AutoResetEvent(false);
+		using var cts = new CancellationTokenSource(10000);
+		var random = new Random();
+		const int maxSleepMs = 15;
+
+		var acquiredCount = 0;
+		var waitTask = ParallelUtility.ForAsync(0, 16, (_, _) =>
+		{
+			while (!cts.IsCancellationRequested)
+			{
+				var sleep = random.Next(0, maxSleepMs);
+				if (resetEvent.WaitOne(sleep))
+					Interlocked.Increment(ref acquiredCount);
+			}
+
+			return ValueTask.CompletedTask;
+		});
+
+		var setCount = 0;
+		var setTask = ParallelUtility.ForAsync(0, setParallelism, async (_, _) =>
+		{
+			while (!cts.IsCancellationRequested)
+			{
+				resetEvent.Set();
+				Interlocked.Increment(ref setCount);
+				var sleep = random.Next(-1, maxSleepMs);
+				switch (sleep)
+				{
+					case > 0:
+						await Task.Delay(sleep, CancellationToken.None);
+						break;
+					case 0:
+						await Task.Yield();
+						break;
+				}
+			}
+		});
+
+		await Task.WhenAll(setTask, waitTask);
+		if (resetEvent.WaitOne(maxSleepMs))
+			Interlocked.Increment(ref acquiredCount);
+
+		if (setParallelism > 1)
+			acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
+		else
+			acquiredCount.ShouldBe(setCount); // Because in such a scenario no way we can miss a signal!
 	}
 
 	[Theory]
@@ -290,8 +349,10 @@ public class ReleaseTests
 		are.Set();
 
 		// Assert
-		are.WaitAsync().AsTask().IsCompletedSuccessfully.ShouldBeTrue();
-		are.WaitAsync().AsTask().IsCompleted.ShouldBeFalse();
+		var once = are.WaitAsync().AsTask();
+		once.IsCompletedSuccessfully.ShouldBeTrue();
+		var second = are.WaitAsync().AsTask();
+		second.IsCompleted.ShouldBeFalse();
 	}
 
 	[Theory]
