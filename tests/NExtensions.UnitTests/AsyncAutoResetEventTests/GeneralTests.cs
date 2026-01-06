@@ -5,80 +5,68 @@ namespace NExtensions.UnitTests.AsyncAutoResetEventTests;
 
 public class GeneralTests
 {
-	// Dispose basics
-// 	AutoResetEvent_Dispose_MultipleCalls_DoesNotThrow
-// 		AutoResetEvent_Dispose_ReleasesNativeHandle
-// 	AutoResetEvent_Dispose_MarksObjectAsDisposed
-//
-// // Post-dispose behavior
-// 		AutoResetEvent_WaitOne_AfterDispose_ThrowsObjectDisposedException
-// 	AutoResetEvent_Set_AfterDispose_ThrowsObjectDisposedException
-// 		AutoResetEvent_Reset_AfterDispose_ThrowsObjectDisposedException
-//
-// // Interaction with finalization
-// 	AutoResetEvent_Dispose_SuppressesFinalization
-// 		AutoResetEvent_Finalizer_WhenNotDisposed_ReleasesHandle
-//
-// // Edge conditions
-// 	AutoResetEvent_Dispose_DuringActiveWait_ThrowsOrUnblocks
-// 		AutoResetEvent_Dispose_WhenNoNativeHandle_DoesNotThrow
-
-
-	[Fact]
-	public void Dispose_DoesNotThrow_ForMultipleCalls()
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public void Constructor_SetInitialStateToSignaled_WhenTrueIsPassed(bool syncContinuations)
 	{
-		var autoResetEvent = new AsyncAutoResetEvent(true);
-		
+		// Arrange & Act
+		using var are = new AsyncAutoResetEvent(true, syncContinuations);
+
+		// Assert
+		var task = are.WaitAsync(CancellationToken.None);
+		task.IsCompletedSuccessfully.ShouldBeTrue();
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task Constructor_SetInitialStateToSignaled_WhenFalseIsPassed(bool syncContinuations)
+	{
+		// Arrange & Act
+		using var are = new AsyncAutoResetEvent(false, syncContinuations);
+
+		// Assert
+		var task = are.WaitAsync(CancellationToken.None);
+		await Task.Delay(50);
+		task.IsCompletedSuccessfully.ShouldBeFalse();
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.Permutations), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public void Dispose_DoesNotThrow_ForMultipleCalls(bool initialState, bool syncContinuations)
+	{
+		var autoResetEvent = new AsyncAutoResetEvent(initialState, syncContinuations);
+
 		autoResetEvent.Dispose();
 		var act = () => autoResetEvent.Dispose();
-		
+
 		act.ShouldNotThrow();
 	}
-	
-	[Fact]
-	public void Set_ThrowsObjectDisposedException_WhenCalledAfterDispose()
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.Permutations), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public void Reset_ThrowsObjectDisposedException_WhenCalledAfterDispose(bool initialState, bool syncContinuations)
 	{
-		var autoResetEvent = new AsyncAutoResetEvent(true);
-		
-		autoResetEvent.Dispose();
-		var act = () => autoResetEvent.Set();
-		
-		act.ShouldThrow<ObjectDisposedException>();
-	}
-	
-	[Fact]
-	public void Reset_ThrowsObjectDisposedException_WhenCalledAfterDispose()
-	{
-		var autoResetEvent = new AsyncAutoResetEvent(true);
-		
+		var autoResetEvent = new AsyncAutoResetEvent(initialState, syncContinuations);
+
 		autoResetEvent.Dispose();
 		var act = () => autoResetEvent.Reset();
-		
+
 		act.ShouldThrow<ObjectDisposedException>();
 	}
-	
-	[Fact]
-	public async Task WaitAsync_ThrowsObjectDisposedException_WhenCalledAfterDispose()
-	{
-		var autoResetEvent = new AsyncAutoResetEvent(true);
-		
-		autoResetEvent.Dispose();
-		var act = async () => await autoResetEvent.WaitAsync(CancellationToken.None);
-		
-		await act.ShouldThrowAsync<ObjectDisposedException>();
-	}
 
-	[Fact]
-	public void WaitAsync_HangsForever_WhenDisposedDuringWait()
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task Reset_ChangeStateToUnsignaled_WhenStateWasSignaled(bool syncContinuations)
 	{
-		var autoResetEvent = new AsyncAutoResetEvent(false);
-		
-		var infiniteWait = autoResetEvent.WaitAsync(CancellationToken.None).AsTask();
-		autoResetEvent.Dispose();
-		
-		infiniteWait.IsCanceled.ShouldBeFalse();
-		infiniteWait.IsFaulted.ShouldBeFalse();
-		infiniteWait.IsCompleted.ShouldBeFalse();
-		infiniteWait.Status.ShouldBe(TaskStatus.WaitingForActivation);
+		// Arrange
+		using var are = new AsyncAutoResetEvent(true, syncContinuations);
+
+		// Act
+		are.Reset();
+
+		// Assert
+		are.WaitAsync().AsTask().IsCompleted.ShouldBeFalse();
+		using var cts = new CancellationTokenSource(10);
+		await Should.ThrowAsync<OperationCanceledException>(async () => await are.WaitAsync(cts.Token));
 	}
 }

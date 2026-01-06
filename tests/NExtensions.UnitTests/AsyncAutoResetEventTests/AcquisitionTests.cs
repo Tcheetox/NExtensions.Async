@@ -1,100 +1,152 @@
-﻿using Shouldly;
+﻿using NExtensions.Async;
+using Shouldly;
+
+// ReSharper disable AccessToDisposedClosure
 
 namespace NExtensions.UnitTests.AsyncAutoResetEventTests;
 
 public class AcquisitionTests
 {
-	[Fact]
-	public async Task Set_DoNotStoreSignalsMoreThanOnce()
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task WaitAsync_ThrowsCancelledOperationException_WhenCalledOnUnsignaledEventWithCancelledToken(bool syncContinuations)
 	{
-		var resetEvent = new AutoResetEvent(true);
-		var one = resetEvent.Set();
-		var two = resetEvent.Set();
-		var releasedCount = 0;
+		// Arrange
+		using var are = new AsyncAutoResetEvent(false, syncContinuations);
+		var cancelledToken = new CancellationToken(true);
 
-		var t1Got = false; 
-		var t2Got = false;
-		var t1 = Task.Run(() =>
-		{
-			t1Got = resetEvent.WaitOne();
-			Interlocked.Increment(ref releasedCount);
-		});
-		var t2 = Task.Run(() =>
-		{
-			t2Got = resetEvent.WaitOne();
-			Interlocked.Increment(ref releasedCount);
-		});
-
-		await Task.Delay(50);
-		releasedCount.ShouldBe(1);
-		one.ShouldBeTrue();
-		two.ShouldBeTrue();
-		if (t1.IsCompleted)
-		{
-			t1Got.ShouldBeTrue();
-			t2Got.ShouldBeFalse();
-			t2.IsCompleted.ShouldBeFalse();
-		}
-		else
-		{
-			t1Got.ShouldBeFalse();
-			t2Got.ShouldBeTrue();
-			t2.IsCompleted.ShouldBeTrue();
-		}
+		// Act & Assert
+		await Should.ThrowAsync<OperationCanceledException>(async () => await are.WaitAsync(cancelledToken));
 	}
-	
-	[Fact]
-	public async Task Set_ReleasesOneWaitingThread_EvenInParallelNTasks()
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task WaitAsync_ThrowsCancelledOperationException_WhenCalledOnSignaledEventWithCancelledToken(bool syncContinuations)
 	{
-		const int n = 30; 
-		var resetEvent = new AutoResetEvent(false);
-		var releasedCount = 0;
-		
-		var tasks = Enumerable.Range(0, n)
-			.Select(_ => Task.Run(() =>
+		// Arrange
+		using var are = new AsyncAutoResetEvent(true, syncContinuations);
+		var cancelledToken = new CancellationToken(true);
+
+		// Act & Assert
+		await Should.ThrowAsync<OperationCanceledException>(async () => await are.WaitAsync(cancelledToken));
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task WaitAsync_ShouldBlockUntilSetOrTimeout_WhenCalledOnUnsignaledEvent(bool syncContinuations)
+	{
+		// Arrange
+		using var are = new AsyncAutoResetEvent(false, syncContinuations);
+		using var cts = new CancellationTokenSource(10);
+
+		// Act
+		var waitTask = are.WaitAsync(cts.Token).AsTask();
+
+		// Assert
+		waitTask.IsCompleted.ShouldBeFalse();
+		waitTask.IsCanceled.ShouldBeFalse();
+		await Task.Delay(50, CancellationToken.None);
+		waitTask.IsCompleted.ShouldBeTrue();
+		waitTask.IsCanceled.ShouldBeTrue();
+
+		await Should.ThrowAsync<OperationCanceledException>(async () => await waitTask);
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task WaitAsync_HangsUntilSet_WhenStateIsUnsignaled(bool syncContinuations)
+	{
+		// Arrange
+		using var are = new AsyncAutoResetEvent(false, syncContinuations);
+		var wasSignaled = false;
+		var task = Task.Run(async () =>
+		{
+			await are.WaitAsync();
+			wasSignaled = true;
+		});
+
+		// Act
+		await Task.Delay(50);
+		wasSignaled.ShouldBeFalse();
+		are.Set();
+		await task;
+
+		// Assert
+		wasSignaled.ShouldBeTrue();
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task WaitAsync_ThrowOperationCanceledException_WhenStateIsUnsignaledAndTimeoutOccurs(bool syncContinuations)
+	{
+		// Arrange
+		using var are = new AsyncAutoResetEvent(false, syncContinuations);
+		using var cts = new CancellationTokenSource(10);
+
+		// Act & Assert
+		await Should.ThrowAsync<OperationCanceledException>(async () => await are.WaitAsync(cts.Token));
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.Permutations), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task WaitAsync_ThrowsObjectDisposedException_WhenCalledAfterDispose(bool initialState, bool syncContinuations)
+	{
+		var autoResetEvent = new AsyncAutoResetEvent(initialState, syncContinuations);
+
+		autoResetEvent.Dispose();
+		var act = async () => await autoResetEvent.WaitAsync(CancellationToken.None);
+
+		await act.ShouldThrowAsync<ObjectDisposedException>();
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public void WaitAsync_HangsForever_WhenDisposedDuringWait(bool syncContinuations)
+	{
+		var autoResetEvent = new AsyncAutoResetEvent(false, syncContinuations);
+
+		var infiniteWait = autoResetEvent.WaitAsync(CancellationToken.None).AsTask();
+		autoResetEvent.Dispose();
+
+		infiniteWait.IsCanceled.ShouldBeFalse();
+		infiniteWait.IsFaulted.ShouldBeFalse();
+		infiniteWait.IsCompleted.ShouldBeFalse();
+		infiniteWait.Status.ShouldBe(TaskStatus.WaitingForActivation);
+	}
+
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public async Task WaitAsync_ShouldReturnOnce_WhenTasksWaitAsyncOnSignaledEvent(bool syncContinuations)
+	{
+		// Arrange
+		using var are = new AsyncAutoResetEvent(true, syncContinuations);
+		var successCount = 0;
+		var cancelledCount = 0;
+		const int taskCount = 20;
+		var tasks = new Task[taskCount];
+
+		// Act
+		for (var i = 0; i < taskCount; i++)
+		{
+			tasks[i] = Task.Run(async () =>
 			{
-				resetEvent.WaitOne();
-				Interlocked.Increment(ref releasedCount);
-			}))
-			.ToArray();
+				using var cts = new CancellationTokenSource(25);
+				try
+				{
+					await are.WaitAsync(cts.Token);
+					Interlocked.Increment(ref successCount);
+				}
+				catch (OperationCanceledException)
+				{
+					Interlocked.Increment(ref cancelledCount);
+				}
+			});
+		}
 
-		await Task.Delay(50);
-		Parallel.For(0, n, _ => resetEvent.Set());
-		
 		await Task.WhenAll(tasks);
-		releasedCount.ShouldBe(n);
-	}
-	
-	[Fact]
-	public async Task Set_ReleasesOneWaitingThread_EvenInParallel()
-	{
-		var resetEvent = new AutoResetEvent(false);
-		var releasedCount = 0;
-		
-		var t1 = Task.Run(() =>
-		{
-			resetEvent.WaitOne();
-			Interlocked.Increment(ref releasedCount);
-		});
-		var t2 = Task.Run(() =>
-		{
-			resetEvent.WaitOne();
-			Interlocked.Increment(ref releasedCount);
-		});
-		var t3 = Task.Run(() =>
-		{
-			resetEvent.WaitOne();
-			Interlocked.Increment(ref releasedCount);
-		});
-		
-        await Task.Delay(50);
-        Parallel.Invoke(
-			() => resetEvent.Set(),
-			() => resetEvent.Set(),
-			() => resetEvent.Set()
-		);
-        
-		await Task.WhenAll(t1, t2, t3);
-		releasedCount.ShouldBe(3);
+
+		// Assert
+		successCount.ShouldBe(1);
+		cancelledCount.ShouldBe(taskCount - 1);
 	}
 }
