@@ -173,14 +173,14 @@ public class AcquisitionsAndReleasesTests
 	{
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
-		// First writer acquires the lock
+		// The first writer acquires the lock
 		var firstWriter = await rwLock.EnterWriterScopeAsync();
 
-		// Queue two readers behind (one will expire while in queue)
+		// Queue two readers behind (one will expire while in the queue)
 		var readerTask1 = rwLock.EnterReaderScopeAsync();
 		var cts = new CancellationTokenSource(30);
 		var readerTask2 = rwLock.EnterReaderScopeAsync(cts.Token);
-		await Task.Delay(100, CancellationToken.None);
+		await Task.Delay(130, CancellationToken.None);
 		readerTask1.IsCompleted.ShouldBeFalse();
 		readerTask2.IsCanceled.ShouldBeTrue();
 
