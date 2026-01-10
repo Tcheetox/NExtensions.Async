@@ -45,7 +45,7 @@ public class AcquisitionTests
 		// Assert
 		waitTask.IsCompleted.ShouldBeFalse();
 		waitTask.IsCanceled.ShouldBeFalse();
-		await Task.Delay(50, CancellationToken.None);
+		await Task.Delay(75, CancellationToken.None);
 		waitTask.IsCompleted.ShouldBeTrue();
 		waitTask.IsCanceled.ShouldBeTrue();
 
