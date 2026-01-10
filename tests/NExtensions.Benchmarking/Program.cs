@@ -1,10 +1,7 @@
 ﻿using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
-using NExtensions.Benchmarking.Collections;
-using NExtensions.Benchmarking.LazyAsync;
-using NExtensions.Benchmarking.LockAsync;
-using NExtensions.Benchmarking.ReadAndWriteLockAsync;
+using NExtensions.Benchmarking.AutoResetEventAsync;
 using Perfolizer.Horology;
 
 namespace NExtensions.Benchmarking;
@@ -14,6 +11,12 @@ internal class Program
 	private static async Task Main(string[] args)
 	{
 #if DEBUG
+
+		var temp = new AutoResetEventBenchmarkDemo();
+		temp.SetupAutoResetEvent();
+		await temp.AutoResetEvent();
+
+
 		return;
 #endif
 		var config =
@@ -22,10 +25,13 @@ internal class Program
 				.WithOption(ConfigOptions.DisableLogFile, true)
 				.WithSummaryStyle(SummaryStyle.Default.WithTimeUnit(TimeUnit.Millisecond));
 
-		BenchmarkRunner.Run<DequeBenchmark>(config);
-		BenchmarkRunner.Run<RwLockBenchmarkDemo>(config);
-		BenchmarkRunner.Run<LazyBenchmarkDemo>(config);
-		BenchmarkRunner.Run<LockBenchmarkDemo>(config);
+		BenchmarkRunner.Run<AutoResetEventBenchmarkDemo>(config);
+		//BenchmarkRunner.Run<AutoResetEventBenchmark>(config);
+
+		//BenchmarkRunner.Run<DequeBenchmark>(config);
+		// BenchmarkRunner.Run<RwLockBenchmarkDemo>(config);
+		// BenchmarkRunner.Run<LazyBenchmarkDemo>(config);
+		// BenchmarkRunner.Run<LockBenchmarkDemo>(config);
 
 		await Task.CompletedTask;
 	}

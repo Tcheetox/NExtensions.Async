@@ -11,17 +11,17 @@ public class AsyncAutoResetEvent : IDisposable
 	private readonly bool _allowSynchronousContinuations;
 	private readonly ConcurrentStack<Waiter> _waiterPool = new();
 	private readonly ConcurrentQueue<Waiter> _waiterQueue = new();
-	
-	[DebuggerBrowsable(DebuggerBrowsableState.Never)]
-	private bool Signaled => Volatile.Read(ref _signaled) == 1;
-	
+
 	private int _signaled;
-	
+
 	public AsyncAutoResetEvent(bool initialState, bool allowSynchronousContinuations = false)
 	{
 		_signaled = initialState ? 1 : 0;
 		_allowSynchronousContinuations = allowSynchronousContinuations;
 	}
+
+	[DebuggerBrowsable(DebuggerBrowsableState.Never)]
+	private bool Signaled => Volatile.Read(ref _signaled) == 1;
 
 	/// <summary>
 	/// Resets the event to a non-signaled state, preventing tasks from proceeding until the event is signaled again.
@@ -34,7 +34,7 @@ public class AsyncAutoResetEvent : IDisposable
 		ThrowIfDisposed();
 		Interlocked.Exchange(ref _signaled, 0);
 	}
-	
+
 	/// <summary>
 	/// Signals the event, allowing one waiting task to proceed. If no tasks are waiting,
 	/// sets the event to a signaled state.
@@ -45,13 +45,13 @@ public class AsyncAutoResetEvent : IDisposable
 	public void Set()
 	{
 		ThrowIfDisposed();
-		
+
 		while (_waiterQueue.TryDequeue(out var waiter))
 		{
 			if (waiter.TrySetResult()) // If we fail to set the result, it means the waiter was canceled.
 				return;
 		}
-		
+
 		Interlocked.Exchange(ref _signaled, 1);
 	}
 
@@ -74,22 +74,34 @@ public class AsyncAutoResetEvent : IDisposable
 		if (cancellationToken.IsCancellationRequested)
 			return ValueTask.FromCanceled(cancellationToken);
 
-		if (Interlocked.CompareExchange(ref _signaled, 0, 1) == 1)
+		// Fast path.
+		if (Interlocked.Exchange(ref _signaled, 0) == 1)
 			return ValueTask.CompletedTask;
 
 		var waiter = Rent();
 		_waiterQueue.Enqueue(waiter);
-		
+
 		// Try to consume the signal again - if we get it, complete ourselves unless we are late to the party.
-		if (Interlocked.CompareExchange(ref _signaled, 0, 1) == 1 && !waiter.TrySetResult())
+		if (Interlocked.Exchange(ref _signaled, 0) == 1)
 		{
-			// We are already consumed by another thread calling Set(), restore the signal by calling Set() ourselves.
-			// At this stage it could not have been a cancellation because we haven't bound the callback yet (see below).
-			Set();
+			if (waiter.TrySetResult())
+				goto end; // No cancellation possible, early return.
+
+			// We are already consumed by another thread calling Set(), manually set another waiter or restore the proper signal.
+			// Note that at this stage it could not have been a cancellation because we haven't bound the callback yet.
+			while (_waiterQueue.TryDequeue(out var otherWaiter))
+			{
+				if (otherWaiter.TrySetResult())
+					goto end; // In this case the signal is in the proper state as far as we are concerned.
+			}
+
+			Interlocked.Exchange(ref _signaled, 1);
 		}
+
 		if (cancellationToken.CanBeCanceled)
 			waiter.SetCancellation(cancellationToken);
 
+		end:
 		return new ValueTask(waiter, waiter.Version);
 	}
 
@@ -109,15 +121,15 @@ public class AsyncAutoResetEvent : IDisposable
 		private ManualResetValueTaskSourceCore<bool> _core;
 		private int _result;
 
-		[DebuggerBrowsable(DebuggerBrowsableState.Never)]
-		private bool HasResult => Volatile.Read(ref _result) == 1;
-		
 		public Waiter(AsyncAutoResetEvent resetEvent)
 		{
 			_resetEvent = resetEvent;
 			_core.RunContinuationsAsynchronously = !resetEvent._allowSynchronousContinuations;
 		}
-		
+
+		[DebuggerBrowsable(DebuggerBrowsableState.Never)]
+		private bool HasResult => Volatile.Read(ref _result) == 1;
+
 		public short Version => _core.Version;
 
 		public void GetResult(short token)
@@ -162,6 +174,7 @@ public class AsyncAutoResetEvent : IDisposable
 	}
 
 	#region Pooling
+
 	private Waiter Rent()
 	{
 		if (!_waiterPool.TryPop(out var waiter))
@@ -173,21 +186,24 @@ public class AsyncAutoResetEvent : IDisposable
 	{
 		_waiterPool.Push(waiter);
 	}
+
 	#endregion
 
 	#region IDisposable
+
 	private bool _disposed;
-	
+
 	/// <inheritdoc />
 	public void Dispose()
 	{
 		if (_disposed) return;
 		_disposed = true;
-		
+
 		// We decide to match the behavior of AutoResetEvent or SemaphoreSlim by having the waiters hanging.
 		_waiterQueue.Clear();
 		_waiterPool.Clear();
 		GC.SuppressFinalize(this);
 	}
+
 	#endregion
 }
