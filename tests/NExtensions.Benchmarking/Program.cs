@@ -1,6 +1,7 @@
 ﻿using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
+using NExtensions.Async;
 using NExtensions.Benchmarking.AutoResetEventAsync;
 using Perfolizer.Horology;
 
@@ -11,6 +12,9 @@ internal class Program
 	private static async Task Main(string[] args)
 	{
 #if DEBUG
+
+		var tt = new AsyncAutoResetEvent(false);
+
 
 		var temp = new AutoResetEventBenchmarkDemo();
 		temp.SetupAutoResetEvent();
