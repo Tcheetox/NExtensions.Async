@@ -178,9 +178,9 @@ public class AcquisitionsAndReleasesTests
 
 		// Queue two readers behind (one will expire while in the queue)
 		var readerTask1 = rwLock.EnterReaderScopeAsync();
-		var cts = new CancellationTokenSource(30);
+		using var cts = new CancellationTokenSource(10);
 		var readerTask2 = rwLock.EnterReaderScopeAsync(cts.Token);
-		await Task.Delay(130, CancellationToken.None);
+		await Task.Delay(100, CancellationToken.None);
 		readerTask1.IsCompleted.ShouldBeFalse();
 		readerTask2.IsCanceled.ShouldBeTrue();
 
@@ -188,7 +188,6 @@ public class AcquisitionsAndReleasesTests
 		firstWriter.Dispose();
 		readerTask1.IsCompletedSuccessfully.ShouldBeTrue();
 		(await readerTask1).Dispose();
-		cts.Dispose();
 	}
 
 	[Theory]
