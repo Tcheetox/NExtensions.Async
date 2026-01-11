@@ -188,13 +188,24 @@ public abstract class AsyncResetEvent : IDisposable
 	/// <inheritdoc />
 	public void Dispose()
 	{
+		Dispose(true);
+		GC.SuppressFinalize(this);
+	}
+
+	/// <summary>
+	/// Disposes of the instance.
+	/// </summary>
+	protected virtual void Dispose(bool disposing)
+	{
 		if (_disposed) return;
 		_disposed = true;
 
-		// We decide to match the behavior of AutoResetEvent or SemaphoreSlim by having the waiters hanging.
-		WaiterQueue.Clear();
-		WaiterPool.Clear();
-		GC.SuppressFinalize(this);
+		if (disposing)
+		{
+			// We decide to match the behavior of AutoResetEvent or SemaphoreSlim by having the waiters hanging.
+			WaiterQueue.Clear();
+			WaiterPool.Clear();
+		}
 	}
 
 	#endregion
