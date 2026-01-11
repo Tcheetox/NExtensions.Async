@@ -127,7 +127,7 @@ public class AcquisitionsAndReleasesTests
 	public async Task EnterWriterScopeAsync_ShouldSkipCancelledWriters_WhenReleased(bool syncReader, bool syncWriter)
 	{
 		// Arrange
-		const int cancelAfter = 300;
+		const int cancelAfter = 15;
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// Act
