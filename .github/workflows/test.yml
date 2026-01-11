@@ -44,12 +44,7 @@ jobs:
               run: dotnet build --no-restore
               
             - name: Run tests
-              run: dotnet test \
-                --no-build \
-                --configuration Release \
-                --framework net${{ matrix.dotnet_major }} \
-                --verbosity normal \
-                --collect:"XPlat Code Coverage"  
+              run: dotnet test --no-build --configuration Release --framework net${{ matrix.dotnet_major }} --verbosity normal --collect:"XPlat Code Coverage"  
           
             - name: Generate coverage report
               run: |
