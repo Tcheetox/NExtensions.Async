@@ -127,7 +127,7 @@ public class AcquisitionsAndReleasesTests
 	public async Task EnterWriterScopeAsync_ShouldSkipCancelledWriters_WhenReleased(bool syncReader, bool syncWriter)
 	{
 		// Arrange
-		const int cancelAfter = 300;
+		const int cancelAfter = 25;
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// Act
@@ -135,7 +135,7 @@ public class AcquisitionsAndReleasesTests
 		var cts = new CancellationTokenSource(cancelAfter);
 		_ = rwLock.EnterWriterScopeAsync(cts.Token).AsTask();
 		var readerTask = rwLock.EnterReaderScopeAsync(CancellationToken.None);
-		await Task.Delay(cancelAfter * 2, CancellationToken.None);
+		await Task.Delay(cancelAfter * 4, CancellationToken.None);
 		writer1.Dispose();
 
 		// Assert
