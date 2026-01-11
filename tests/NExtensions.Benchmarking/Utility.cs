@@ -1,7 +1,10 @@
-﻿namespace NExtensions.Benchmarking;
+﻿using System.Runtime.CompilerServices;
+
+namespace NExtensions.Benchmarking;
 
 internal static class Utility
 {
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static async Task WaitMeAsync(string wait)
 	{
 		switch (wait)

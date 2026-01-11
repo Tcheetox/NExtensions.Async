@@ -39,7 +39,7 @@ public sealed class AsyncLock
 	/// If <c>true</c>, continuations after acquiring the lock may run synchronously.
 	/// If <c>false</c>, continuations will always run asynchronously.
 	/// </param>
-	/// <remarks>Synchronous continuations can significantly improve performance, but introduce additional risks such as reentrancy or stack dive.</remarks>
+	/// <remarks>Synchronous continuations can significantly improve performance but introduce additional risks such as reentrancy or stack dive.</remarks>
 	public AsyncLock(bool allowSynchronousContinuations)
 	{
 		_allowSynchronousContinuations = allowSynchronousContinuations;

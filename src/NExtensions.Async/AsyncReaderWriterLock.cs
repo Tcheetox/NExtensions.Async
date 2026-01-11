@@ -57,12 +57,12 @@ public sealed class AsyncReaderWriterLock
 	/// with options to allow synchronous continuations for readers and writers.
 	/// </summary>
 	/// <param name="allowSynchronousReaderContinuations">
-	/// If set to <c>true</c>, allows synchronous continuations for reader operations.
+	/// If <c>true</c>, allows synchronous continuations for reader operations.
 	/// </param>
 	/// <param name="allowSynchronousWriterContinuations">
-	/// If set to <c>true</c>, allows synchronous continuations for writer operations.
+	/// If <c>true</c>, allows synchronous continuations for writer operations.
 	/// </param>
-	/// <remarks>Both options can significantly improve performance, but introduce additional risks such as reentrancy or stack dive.</remarks>
+	/// <remarks>Both options can significantly improve performance but introduce additional risks such as reentrancy or stack dive.</remarks>
 	public AsyncReaderWriterLock(bool allowSynchronousReaderContinuations, bool allowSynchronousWriterContinuations)
 	{
 		_allowSynchronousReaderContinuations = allowSynchronousReaderContinuations;

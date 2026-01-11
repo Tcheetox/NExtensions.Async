@@ -8,22 +8,20 @@
 
     <PropertyGroup>
         <PackageId>NExtensions.Async</PackageId>
-        <Version>1.1.0</Version>
+        <Version>1.2.0</Version>
         <Authors>Kévin Renier</Authors>
-        <Description>High-performance async synchronization primitives including AsyncReaderWriterLock, AsyncLazy, and AsyncLock for modern .NET applications.</Description>
+        <Description>High-performance async synchronization primitives including AsyncReaderWriterLock, AsyncLazy, AsyncLock, AsyncAutoResetEvent, and AsyncManualResetEvent for modern .NET applications.</Description>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <IncludeSymbols>true</IncludeSymbols>
-        <PackageTags>async;concurrency;threading;lock;synchronization;dotnet;csharp;asynclock;readerwriter;lazy</PackageTags>
+        <PackageTags>async;concurrency;threading;lock;synchronization;dotnet;csharp;asynclock;readerwriter;lazy;event;autoreset;manualreset;asyncevent</PackageTags>
         <PackageReleaseNotes>
-            Added .NET 9 support including System.Threading.Lock integration.
-            Continued support for AsyncReaderWriterLock, AsyncLazy, and AsyncLock.
-            Enhanced compatibility with the latest .NET runtime.
+            Added AsyncAutoResetEvent and AsyncManualResetEvent synchronization primitives.
         </PackageReleaseNotes>
         <PackageProjectUrl>https://github.com/Tcheetox/NExtensions.Async</PackageProjectUrl>
         <RepositoryUrl>https://github.com/Tcheetox/NExtensions.Async</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <Copyright>Copyright © Kévin Renier 2025</Copyright>
+        <Copyright>Copyright © Kévin Renier 2026</Copyright>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageIcon>icon.png</PackageIcon>

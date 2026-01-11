@@ -2,7 +2,7 @@
 using NExtensions.Async.Collections;
 using Shouldly;
 
-namespace NExtensions.UnitTests;
+namespace NExtensions.UnitTests.Collections;
 
 public class DequeTests
 {

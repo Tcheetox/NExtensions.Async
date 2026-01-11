@@ -10,6 +10,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NExtensions.Async", "src\NE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NExtensions.Benchmarking", "tests\NExtensions.Benchmarking\NExtensions.Benchmarking.csproj", "{E1E8FCB3-A099-40E8-9A47-A09A19FB8AA5}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{D0D095D2-9FBD-4C66-86C4-6F7CB2F62F27}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\.idea\.gitignore = .github\workflows\.idea\.gitignore
+		.github\workflows\CODEOWNERS = .github\workflows\CODEOWNERS
+		.github\workflows\private-publish.yml = .github\workflows\private-publish.yml
+		.github\workflows\public-publish.yml = .github\workflows\public-publish.yml
+		.github\workflows\test.yml = .github\workflows\test.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

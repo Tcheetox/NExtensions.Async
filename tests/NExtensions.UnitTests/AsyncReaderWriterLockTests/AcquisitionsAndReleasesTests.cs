@@ -127,7 +127,7 @@ public class AcquisitionsAndReleasesTests
 	public async Task EnterWriterScopeAsync_ShouldSkipCancelledWriters_WhenReleased(bool syncReader, bool syncWriter)
 	{
 		// Arrange
-		const int cancelAfter = 300;
+		const int cancelAfter = 25;
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		// Act
@@ -135,7 +135,7 @@ public class AcquisitionsAndReleasesTests
 		var cts = new CancellationTokenSource(cancelAfter);
 		_ = rwLock.EnterWriterScopeAsync(cts.Token).AsTask();
 		var readerTask = rwLock.EnterReaderScopeAsync(CancellationToken.None);
-		await Task.Delay(cancelAfter * 2, CancellationToken.None);
+		await Task.Delay(cancelAfter * 4, CancellationToken.None);
 		writer1.Dispose();
 
 		// Assert
@@ -173,12 +173,12 @@ public class AcquisitionsAndReleasesTests
 	{
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
-		// First writer acquires the lock
+		// The first writer acquires the lock
 		var firstWriter = await rwLock.EnterWriterScopeAsync();
 
-		// Queue two readers behind (one will expire while in queue)
+		// Queue two readers behind (one will expire while in the queue)
 		var readerTask1 = rwLock.EnterReaderScopeAsync();
-		var cts = new CancellationTokenSource(30);
+		using var cts = new CancellationTokenSource(10);
 		var readerTask2 = rwLock.EnterReaderScopeAsync(cts.Token);
 		await Task.Delay(100, CancellationToken.None);
 		readerTask1.IsCompleted.ShouldBeFalse();
@@ -188,7 +188,6 @@ public class AcquisitionsAndReleasesTests
 		firstWriter.Dispose();
 		readerTask1.IsCompletedSuccessfully.ShouldBeTrue();
 		(await readerTask1).Dispose();
-		cts.Dispose();
 	}
 
 	[Theory]
