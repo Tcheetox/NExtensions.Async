@@ -19,8 +19,8 @@ public class AutoResetEventBenchmarkDemo
 	private AsyncAutoResetEvent? _asyncAre;
 	private ParallelOptions? _setOptions;
 	private ParallelOptions? _waitOptions;
-	
-	[Params("1/1", "3/1", "1/10", "10/1", "10/10", "3/100")]
+
+	[Params("1/1", "1/10", "3/100")]
 	public string SW { get; set; } = "1/10";
 
 	[Params(100_000)]
@@ -59,7 +59,7 @@ public class AutoResetEventBenchmarkDemo
 		_asyncAre!.Dispose();
 		_asyncAre = null;
 	}
-	
+
 	[Benchmark]
 	public Task AutoResetEvent()
 	{

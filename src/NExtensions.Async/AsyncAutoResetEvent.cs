@@ -1,7 +1,16 @@
 ﻿namespace NExtensions.Async;
 
+/// <summary>
+/// Represents an asynchronous auto-reset event.
+/// When signaled, it allows a single waiting task to proceed and then automatically resets to a non-signaled state.
+/// </summary>
 public class AsyncAutoResetEvent : AsyncResetEvent
 {
+	/// <summary>
+	/// Initializes a new instance of the <see cref="AsyncAutoResetEvent"/> class with a value indicating 
+	/// whether to set the initial state to signaled and optionally allowing synchronous continuations.
+	/// </summary>
+	/// <inheritdoc/>
 	public AsyncAutoResetEvent(bool initialState, bool allowSynchronousContinuations = false)
 		: base(initialState, allowSynchronousContinuations)
 	{
@@ -30,7 +39,7 @@ public class AsyncAutoResetEvent : AsyncResetEvent
 
 	/// <summary>
 	/// Waits asynchronously for the event to be signaled. If the event is already signaled, the method returns immediately.
-	/// Otherwise, it will wait until the event is signaled or the specified cancellation token is canceled.
+	/// Otherwise, it will wait until the event is signaled or if the provided cancellation token is canceled.
 	/// </summary>
 	/// <param name="cancellationToken">
 	/// A <see cref="CancellationToken"/> to observe while waiting. If the token is canceled, the wait is aborted, and a <see cref="ValueTask"/> is returned in a canceled state.

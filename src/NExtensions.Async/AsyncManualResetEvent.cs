@@ -1,12 +1,27 @@
 ﻿namespace NExtensions.Async;
 
+/// <summary>
+/// Represents an asynchronous manual-reset event.
+/// When signaled, it remains signaled until it is manually reset, allowing all waiting tasks to proceed.
+/// </summary>
 public class AsyncManualResetEvent : AsyncResetEvent
 {
+	/// <summary>
+	/// Initializes a new instance of the <see cref="AsyncManualResetEvent"/> class with a value indicating 
+	/// whether to set the initial state to signaled and optionally allowing synchronous continuations.
+	/// </summary>
+	/// <inheritdoc/>
 	public AsyncManualResetEvent(bool initialState, bool allowSynchronousContinuations = false)
 		: base(initialState, allowSynchronousContinuations)
 	{
 	}
 
+	/// <summary>
+	/// Signals the event, allowing all waiting tasks to proceed. The event remains signaled until <see cref="AsyncResetEvent.Reset"/> is called.
+	/// </summary>
+	/// <exception cref="ObjectDisposedException">
+	/// Thrown if the instance has been disposed.
+	/// </exception>
 	public override void Set()
 	{
 		ThrowIfDisposed();
@@ -19,6 +34,19 @@ public class AsyncManualResetEvent : AsyncResetEvent
 		}
 	}
 
+	/// <summary>
+	/// Waits asynchronously for the event to be signaled. If the event is already signaled, the method returns immediately.
+	/// Otherwise, it will wait until the event is signaled or if the provided cancellation token is canceled.
+	/// </summary>
+	/// <param name="cancellationToken">
+	/// A <see cref="CancellationToken"/> to observe while waiting. If the token is canceled, the wait is aborted, and a <see cref="ValueTask"/> is returned in a canceled state.
+	/// </param>
+	/// <returns>
+	/// A <see cref="ValueTask"/> that completes when the event is signaled or the cancellation token is canceled.
+	/// </returns>
+	/// <exception cref="ObjectDisposedException">
+	/// Thrown if the instance has been disposed.
+	/// </exception>
 	public override ValueTask WaitAsync(CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
