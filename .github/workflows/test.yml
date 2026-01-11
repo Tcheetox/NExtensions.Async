@@ -14,15 +14,7 @@ jobs:
         strategy:
           fail-fast: false
           matrix:
-            include:
-              - dotnet: '6.0.x'
-                dotnet_major: '6.0'
-              - dotnet: '7.0.x'
-                dotnet_major: '7.0'
-              - dotnet: '8.0.x'
-                dotnet_major: '8.0'
-              - dotnet: '9.0.x'
-                dotnet_major: '9.0'
+            dotnet: ['6.0', '7.0', '8.0', '9.0']
           
         name: Test on .NET ${{ matrix.dotnet }}
     
@@ -32,7 +24,11 @@ jobs:
             - name: Setup .NET SDKs
               uses: actions/setup-dotnet@v4
               with:
-                  dotnet-version: ${{ matrix.dotnet }}
+                dotnet-version: |
+                  6.0.x
+                  7.0.x
+                  8.0.x
+                  9.0.x
                   
             - name: Setup report generator
               run: dotnet tool install --global dotnet-reportgenerator-globaltool
@@ -44,8 +40,8 @@ jobs:
               run: dotnet build --no-restore
               
             - name: Run tests
-              run: dotnet test --no-build --configuration Release --framework net${{ matrix.dotnet_major }} --verbosity normal --collect:"XPlat Code Coverage"  
-          
+              run: dotnet test --no-build --verbosity normal --framework net${{ matrix.dotnet }} --collect:"XPlat Code Coverage"
+              
             - name: Generate coverage report
               run: |
                   reportgenerator \
