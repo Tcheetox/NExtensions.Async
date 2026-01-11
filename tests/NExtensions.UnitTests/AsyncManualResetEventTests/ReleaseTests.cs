@@ -182,4 +182,37 @@ public class ReleaseTests
 		// Assert
 		count.ShouldBe(n);
 	}
+	
+	[Theory]
+	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
+	public void Set_BeIdempotentRegardingSignal_WhenCalledInParallel(bool syncContinuations)
+	{
+		// Arrange
+		const int parallelism = 10;
+		const int hits = 1000;
+		using var are = new AsyncManualResetEvent(false, syncContinuations);
+
+		// Act & Assert
+		var waits = 0;
+		var options = new ParallelOptions { MaxDegreeOfParallelism = parallelism };
+		var waitAll = ParallelUtility.ForAsync(0, parallelism, options, async (_, _) =>
+		{
+			while (true)
+			{
+				var current = Interlocked.Increment(ref waits);
+				if (current > hits) return;
+				await are.WaitAsync(CancellationToken.None);
+			}
+		});
+
+		Parallel.For(0, parallelism, options, _ =>
+		{
+			while (!waitAll.IsCompletedSuccessfully)
+			{
+				var act = () => are.Set();
+				act.ShouldNotThrow();
+			}
+		});
+		waits.ShouldBeGreaterThanOrEqualTo(hits);
+	}
 }

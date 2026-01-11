@@ -357,7 +357,40 @@ public class ReleaseTests
 		// Assert
 		are.WaitAsync().AsTask().IsCompletedSuccessfully.ShouldBeTrue();
 	}
+	
+	[Theory]
+	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
+	public void Set_BeIdempotentRegardingSignal_WhenCalledInParallel(bool syncContinuations)
+	{
+		// Arrange
+		const int parallelism = 10;
+		const int hits = 1000;
+		using var are = new AsyncAutoResetEvent(false, syncContinuations);
 
+		// Act & Assert
+		var waits = 0;
+		var options = new ParallelOptions { MaxDegreeOfParallelism = parallelism };
+		var waitAll = ParallelUtility.ForAsync(0, parallelism, options, async (_, _) =>
+		{
+			while (true)
+			{
+				var current = Interlocked.Increment(ref waits);
+				if (current > hits) return;
+				await are.WaitAsync(CancellationToken.None);
+			}
+		});
+
+		Parallel.For(0, parallelism, options, _ =>
+		{
+			while (!waitAll.IsCompletedSuccessfully)
+			{
+				var act = () => are.Set();
+				act.ShouldNotThrow();
+			}
+		});
+		waits.ShouldBeGreaterThanOrEqualTo(hits);
+	}
+	
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
 	public async Task Set_ReleaseAllWaitingTasks_WhenCalledInParallel(bool syncContinuations)
