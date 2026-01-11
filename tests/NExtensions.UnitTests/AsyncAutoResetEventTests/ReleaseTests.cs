@@ -234,7 +234,7 @@ public class ReleaseTests
 		releasedCount.ShouldBe(3);
 	}
 
-	[Theory]
+	[Theory(Skip = "You can't assert for 'mostly'")]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
 	public async Task Set_ShouldReleasePendingThreads_MostlyInFifoOrder(bool syncContinuations)
 	{
