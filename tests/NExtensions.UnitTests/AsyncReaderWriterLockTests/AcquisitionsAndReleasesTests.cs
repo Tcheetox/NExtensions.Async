@@ -129,13 +129,17 @@ public class AcquisitionsAndReleasesTests
 		// Arrange
 		const int cancelAfter = 25;
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
+		var tcs = new TaskCompletionSource();
 
 		// Act
 		var writer1 = await rwLock.EnterWriterScopeAsync();
 		var cts = new CancellationTokenSource(cancelAfter);
-		_ = rwLock.EnterWriterScopeAsync(cts.Token).AsTask();
+		_ = rwLock
+			.EnterWriterScopeAsync(cts.Token)
+			.AsTask()
+			.ContinueWith(_ => tcs.SetResult(), TaskContinuationOptions.OnlyOnCanceled);
 		var readerTask = rwLock.EnterReaderScopeAsync(CancellationToken.None);
-		await Task.Delay(cancelAfter * 4, CancellationToken.None);
+		await tcs.Task;
 		writer1.Dispose();
 
 		// Assert
