@@ -55,7 +55,8 @@ public class ReleaseTests
 			Interlocked.Increment(ref releasedCount);
 		});
 
-		await Task.Delay(100);
+		await Task.WhenAny(t1, t2);
+		await Task.Delay(30);
 		releasedCount.ShouldBe(1);
 
 		if (t1.IsCompleted)
@@ -150,8 +151,8 @@ public class ReleaseTests
 		});
 
 		await Task.WhenAll(setTask, waitTask);
-        acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
-    }
+		acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
+	}
 
 	[Theory]
 	[InlineData(1)]
@@ -197,8 +198,8 @@ public class ReleaseTests
 		});
 
 		await Task.WhenAll(setTask, waitTask);
-        acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
-    }
+		acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
+	}
 
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
@@ -312,10 +313,11 @@ public class ReleaseTests
 			await are.WaitAsync();
 			Interlocked.Increment(ref releaseCount);
 		});
-		await Task.Delay(50);
+		await Task.Delay(30);
 
 		// Act
 		are.Set();
+		await Task.WhenAny(t1, t2);
 		await Task.Delay(50);
 
 		// Assert
@@ -357,7 +359,7 @@ public class ReleaseTests
 		// Assert
 		are.WaitAsync().AsTask().IsCompletedSuccessfully.ShouldBeTrue();
 	}
-	
+
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
 	public void Set_BeIdempotentRegardingSignal_WhenCalledInParallel(bool syncContinuations)
@@ -390,7 +392,7 @@ public class ReleaseTests
 		});
 		waits.ShouldBeGreaterThanOrEqualTo(hits);
 	}
-	
+
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
 	public async Task Set_ReleaseAllWaitingTasks_WhenCalledInParallel(bool syncContinuations)

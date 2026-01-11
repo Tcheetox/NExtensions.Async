@@ -69,7 +69,7 @@ public class NoneWithRetryTests : NonParallelTests
 		{
 			var task = asyncLazy.GetAsync();
 			task.IsCompleted.ShouldBeFalse();
-			asyncLazy.IsValueCreated.ShouldBeFalse(); // Result cannot be there since it's an exception with retry policy.
+			asyncLazy.IsValueCreated.ShouldBeFalse(); // Results cannot be there since it's an exception with retry policy.
 			await Task.Delay(sleep * 10); // Some breathing room to ensure it completes.
 			task.IsCompleted.ShouldBeTrue();
 			task.IsFaulted.ShouldBeTrue();

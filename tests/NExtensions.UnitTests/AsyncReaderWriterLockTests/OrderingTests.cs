@@ -18,14 +18,14 @@ public class OrderingTests
 		writer2Task.IsCompleted.ShouldBeFalse();
 		writer3Task.IsCompleted.ShouldBeFalse();
 
-		// Release first writer, the second writer should acquire
+		// Release the first writer, the second writer should acquire
 		writer1.Dispose();
 		writer2Task.IsCompletedSuccessfully.ShouldBeTrue();
 
 		var writer2 = await writer2Task;
 		writer3Task.IsCompleted.ShouldBeFalse();
 
-		// Release second writer, the third writer should acquire
+		// Release the second writer, the third writer should acquire
 		writer2.Dispose();
 		writer3Task.IsCompletedSuccessfully.ShouldBeTrue();
 		var writer3 = await writer3Task;
@@ -46,7 +46,7 @@ public class OrderingTests
 		reader2Task.IsCompletedSuccessfully.ShouldBeTrue();
 		reader3Task.IsCompletedSuccessfully.ShouldBeTrue();
 
-		// Release first reader - this should release all queued readers simultaneously
+		// Release the first reader - this should release all queued readers simultaneously
 		reader1.Dispose();
 		(await reader2Task).Dispose();
 		(await reader3Task).Dispose();
@@ -104,7 +104,7 @@ public class OrderingTests
 		var writer1 = await rwLock.EnterWriterScopeAsync();
 		using var cts = new CancellationTokenSource(TimeSpan.Zero);
 
-		// Enqueue a writer with canceled token (should never acquire)
+		// Enqueue a writer with the canceled token (should never acquire)
 		var cancelledWriterTask = rwLock.EnterWriterScopeAsync(cts.Token);
 		cancelledWriterTask.IsCanceled.ShouldBeTrue();
 

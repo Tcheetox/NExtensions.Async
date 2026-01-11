@@ -176,6 +176,7 @@ public class AcquisitionsAndReleasesTests
 	public async Task EnterWriterScopeAsync_ShouldResumeNextReaders_WhenMultipleReadersQueued(bool syncReader, bool syncWriter)
 	{
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
+		var tcs = new TaskCompletionSource();
 
 		// The first writer acquires the lock
 		var firstWriter = await rwLock.EnterWriterScopeAsync();
@@ -184,7 +185,10 @@ public class AcquisitionsAndReleasesTests
 		var readerTask1 = rwLock.EnterReaderScopeAsync();
 		using var cts = new CancellationTokenSource(10);
 		var readerTask2 = rwLock.EnterReaderScopeAsync(cts.Token);
-		await Task.Delay(100, CancellationToken.None);
+		_ = readerTask2
+			.AsTask()
+			.ContinueWith(_ => tcs.SetResult(), TaskContinuationOptions.OnlyOnCanceled);
+		await tcs.Task;
 		readerTask1.IsCompleted.ShouldBeFalse();
 		readerTask2.IsCanceled.ShouldBeTrue();
 

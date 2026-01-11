@@ -92,14 +92,14 @@ public class ThreadingTests
 		{
 			try
 			{
-				await Task.Delay(1, CancellationToken.None);
+				await Task.Yield();
 				using var cts = new CancellationTokenSource(Random.Shared.Next(0, 5));
 				using (await asyncLock.EnterWriterScopeAsync(cts.Token))
 				{
 					Interlocked.Increment(ref totalWriteHits);
 					var localCount = Interlocked.Increment(ref concurrentWriteCount);
 					InterlockedUtility.Max(ref maxConcurrentWrite, localCount);
-					await Task.Delay(1, CancellationToken.None);
+					await Task.Yield();
 					Interlocked.Decrement(ref concurrentWriteCount);
 				}
 			}
@@ -117,14 +117,14 @@ public class ThreadingTests
 		{
 			try
 			{
-				await Task.Delay(1, CancellationToken.None);
+				await Task.Yield();
 				using var cts = new CancellationTokenSource(Random.Shared.Next(0, 5));
 				using (await asyncLock.EnterReaderScopeAsync(cts.Token))
 				{
 					Interlocked.Increment(ref totalReadHits);
 					var localCount = Interlocked.Increment(ref concurrentReadCount);
 					InterlockedUtility.Max(ref maxConcurrentRead, localCount);
-					await Task.Delay(1, CancellationToken.None);
+					await Task.Yield();
 					Interlocked.Decrement(ref concurrentReadCount);
 				}
 			}

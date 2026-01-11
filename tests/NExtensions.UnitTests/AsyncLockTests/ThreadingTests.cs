@@ -54,7 +54,7 @@ public class ThreadingTests
 					var current = Interlocked.Increment(ref concurrentCount);
 					current.ShouldBe(1);
 					Interlocked.Increment(ref totalHits);
-					await Task.Delay(1, CancellationToken.None);
+					await Task.Yield();
 					Interlocked.Decrement(ref concurrentCount);
 				}
 			}

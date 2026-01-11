@@ -66,7 +66,7 @@ public class ReleaseTests
 	{
 		using var mre = new AsyncManualResetEvent(false, syncContinuations);
 		mre.Set();
-		
+
 		var t1 = mre.WaitAsync().AsTask();
 		var t2 = mre.WaitAsync().AsTask();
 
@@ -74,7 +74,7 @@ public class ReleaseTests
 
 		t1.IsCompletedSuccessfully.ShouldBeTrue();
 		t2.IsCompletedSuccessfully.ShouldBeTrue();
-		
+
 		mre.Reset();
 		var t3 = mre.WaitAsync().AsTask();
 		await Task.Delay(50);
@@ -89,7 +89,7 @@ public class ReleaseTests
 		const int count = 50;
 		using var mre = new AsyncManualResetEvent(false, syncContinuations);
 		var releaseOrder = new ConcurrentQueue<int>();
-		var allTasksWaiting = new TaskCompletionSource<bool>();
+		var allTasksWaiting = new TaskCompletionSource();
 		var waitingCount = 0;
 		var tasks = new List<Task>();
 
@@ -101,7 +101,7 @@ public class ReleaseTests
 			{
 				if (Interlocked.Increment(ref waitingCount) == count)
 				{
-					allTasksWaiting.SetResult(true);
+					allTasksWaiting.SetResult();
 				}
 
 				await mre.WaitAsync();
@@ -112,8 +112,6 @@ public class ReleaseTests
 		}
 
 		await allTasksWaiting.Task;
-		await Task.Delay(50);
-
 		mre.Set();
 		await Task.WhenAll(tasks);
 
@@ -163,16 +161,21 @@ public class ReleaseTests
 		using var mre = new AsyncManualResetEvent(false, syncContinuations);
 		var count = 0;
 		var tasks = new Task[n];
+		var tcs = new TaskCompletionSource();
+
 		for (var i = 0; i < n; i++)
 		{
+			var taskId = i;
 			tasks[i] = Task.Run(async () =>
 			{
+				if (taskId == n - 1)
+					tcs.SetResult();
 				await mre.WaitAsync();
 				Interlocked.Increment(ref count);
 			});
 		}
 
-		await Task.Delay(50);
+		await tcs.Task;
 
 		// Act
 		Parallel.For(0, n, _ => mre.Set());
@@ -182,7 +185,7 @@ public class ReleaseTests
 		// Assert
 		count.ShouldBe(n);
 	}
-	
+
 	[Theory]
 	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
 	public void Set_BeIdempotentRegardingSignal_WhenCalledInParallel(bool syncContinuations)

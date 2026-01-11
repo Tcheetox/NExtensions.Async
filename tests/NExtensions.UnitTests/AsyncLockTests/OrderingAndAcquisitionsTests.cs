@@ -12,7 +12,7 @@ public class OrderingAndAcquisitionsTests
 
 		using (await sync.EnterScopeAsync())
 		{
-			await Task.Delay(1);
+			await ValueTask.CompletedTask;
 		}
 
 		var acquiredSync = sync.EnterScopeAsync();
@@ -51,7 +51,7 @@ public class OrderingAndAcquisitionsTests
 		{
 			using var scope = await asyncLock.EnterScopeAsync();
 			accessLog.Add(id);
-			await Task.Delay(10);
+			await Task.Delay(5);
 		}
 	}
 
@@ -82,7 +82,7 @@ public class OrderingAndAcquisitionsTests
 			using var scope = await asyncLock.EnterScopeAsync();
 			concurrentAccesses++;
 			maxConcurrentAccesses = Math.Max(maxConcurrentAccesses, concurrentAccesses);
-			await Task.Delay(10);
+			await Task.Delay(5);
 			concurrentAccesses--;
 		}
 	}

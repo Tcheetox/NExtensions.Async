@@ -70,7 +70,7 @@ public class AcquisitionTests
 		});
 
 		// Act
-		await Task.Delay(50);
+		await Task.Delay(30);
 		wasSignaled.ShouldBeFalse();
 		are.Set();
 		await task;

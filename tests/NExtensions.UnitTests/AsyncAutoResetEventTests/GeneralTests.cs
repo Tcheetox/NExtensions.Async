@@ -26,7 +26,7 @@ public class GeneralTests
 
 		// Assert
 		var task = are.WaitAsync(CancellationToken.None);
-		await Task.Delay(50);
+		await Task.Delay(30);
 		task.IsCompletedSuccessfully.ShouldBeFalse();
 	}
 
