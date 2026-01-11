@@ -38,14 +38,18 @@ public class AcquisitionTests
 		// Arrange
 		using var are = new AsyncAutoResetEvent(false, syncContinuations);
 		using var cts = new CancellationTokenSource(10);
+		var tcs = new TaskCompletionSource();
 
 		// Act
-		var waitTask = are.WaitAsync(cts.Token).AsTask();
+		var waitTask = are
+			.WaitAsync(cts.Token)
+			.AsTask();
+		_ = waitTask.ContinueWith(_ => tcs.SetResult(), TaskContinuationOptions.OnlyOnCanceled);
 
 		// Assert
 		waitTask.IsCompleted.ShouldBeFalse();
 		waitTask.IsCanceled.ShouldBeFalse();
-		await Task.Delay(75, CancellationToken.None);
+		await tcs.Task;
 		waitTask.IsCompleted.ShouldBeTrue();
 		waitTask.IsCanceled.ShouldBeTrue();
 
