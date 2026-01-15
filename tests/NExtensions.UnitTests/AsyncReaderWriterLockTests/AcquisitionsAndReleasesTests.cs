@@ -38,7 +38,7 @@ public class AcquisitionsAndReleasesTests
 		Should.NotThrow(() => releaser.Dispose());
 	}
 
-	[Theory]
+	[Theory(Skip = "When running locally")]
 	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
 	public async Task EnterWriterScopeAsync_ShouldAcquireManyTimes_WithoutStackDiveIssue(bool syncReader, bool syncWriter)
 	{

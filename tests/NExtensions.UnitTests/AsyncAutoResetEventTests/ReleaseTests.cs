@@ -364,14 +364,13 @@ public class ReleaseTests
 	public void Set_BeIdempotentRegardingSignal_WhenCalledInParallel(bool syncContinuations)
 	{
 		// Arrange
-		const int parallelism = 10;
+		const int to = 10;
 		const int hits = 1000;
 		using var are = new AsyncAutoResetEvent(false, syncContinuations);
 
 		// Act & Assert
 		var waits = 0;
-		var options = new ParallelOptions { MaxDegreeOfParallelism = parallelism };
-		var waitAll = ParallelUtility.ForAsync(0, parallelism, options, async (_, _) =>
+		var waitAll = ParallelUtility.ForAsync(0, to, async (_, _) =>
 		{
 			while (true)
 			{
@@ -381,7 +380,7 @@ public class ReleaseTests
 			}
 		});
 
-		Parallel.For(0, parallelism, options, _ =>
+		Parallel.For(0, to, _ =>
 		{
 			while (!waitAll.IsCompletedSuccessfully)
 			{

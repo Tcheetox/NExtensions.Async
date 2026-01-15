@@ -70,7 +70,7 @@ public class ThreadingTests
 	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
 	public async Task AsyncReaderWriterLock_AllowsSingleWriterAndMultipleReadersConcurrently_WithRandomCancellation(bool syncReader, bool syncWriter)
 	{
-		const int expectedHits = 500;
+		const int expectedHits = 1000;
 		var asyncLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var concurrentWriteCount = 0;
