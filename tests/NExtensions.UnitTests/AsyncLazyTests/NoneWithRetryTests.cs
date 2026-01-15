@@ -1,6 +1,5 @@
 ﻿using NExtensions.Async;
 using NExtensions.UnitTests.AsyncLazyTests.Shared;
-using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncLazyTests;
 
@@ -11,7 +10,7 @@ public class NoneWithRetryTests : NonParallelTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
-	public async Task GetNoneWithRetryAsync_CreatesOnce_OnSuccess(bool withCancellation)
+	public async Task GetNoneWithRetry_CreatesOnce_OnSuccess(bool withCancellation)
 	{
 		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(5, token), withCancellation, Mode);
 
@@ -27,7 +26,7 @@ public class NoneWithRetryTests : NonParallelTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
-	public async Task GetNoneWithRetryAsync_Retries_OnError(bool withCancellation)
+	public async Task GetNoneWithRetry_Retries_OnError(bool withCancellation)
 	{
 		const int attempts = 3;
 		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(5, token), withCancellation, Mode);
@@ -43,7 +42,7 @@ public class NoneWithRetryTests : NonParallelTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
-	public async Task GetNoneWithRetryAsync_Retries_OnFactoryError(bool withCancellation)
+	public async Task GetNoneWithRetry_Retries_OnFactoryError(bool withCancellation)
 	{
 		const int attempts = 3;
 		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(_ => CtorException.ThrowsDirectly(), withCancellation, Mode);
@@ -59,7 +58,7 @@ public class NoneWithRetryTests : NonParallelTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
-	public async Task GetNoneWithRetryAsync_ResetOnErrorEvenIfNotAwaited_OnError(bool withCancellation)
+	public async Task GetNoneWithRetry_ResetOnErrorEvenIfNotAwaited_OnError(bool withCancellation)
 	{
 		const int attempts = 3;
 		const int sleep = 5;
@@ -69,7 +68,7 @@ public class NoneWithRetryTests : NonParallelTests
 		{
 			var task = asyncLazy.GetAsync();
 			task.IsCompleted.ShouldBeFalse();
-			asyncLazy.IsValueCreated.ShouldBeFalse(); // Result cannot be there since it's an exception with retry policy.
+			asyncLazy.IsValueCreated.ShouldBeFalse(); // Results cannot be there since it's an exception with retry policy.
 			await Task.Delay(sleep * 10); // Some breathing room to ensure it completes.
 			task.IsCompleted.ShouldBeTrue();
 			task.IsFaulted.ShouldBeTrue();
@@ -82,7 +81,7 @@ public class NoneWithRetryTests : NonParallelTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
-	public void GetNoneWithRetryAsync_ResetOnErrorEvenIfNotAwaited_OnFactoryError(bool withCancellation)
+	public void GetNoneWithRetry_ResetOnErrorEvenIfNotAwaited_OnFactoryError(bool withCancellation)
 	{
 		const int attempts = 3;
 		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(_ => CtorException.ThrowsDirectly(), withCancellation, Mode);

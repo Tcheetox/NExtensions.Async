@@ -1,5 +1,4 @@
 ﻿using NExtensions.Async;
-using Shouldly;
 
 // ReSharper disable AccessToDisposedClosure
 
@@ -9,7 +8,7 @@ public class AcquisitionTests
 {
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
-	public async Task WaitAsync_ThrowsCancelledOperationException_WhenCalledOnUnsignaledEventWithCancelledToken(bool syncContinuations)
+	public async Task WaitAsync_ThrowsOperationCanceledException_WhenCalledOnUnsignaledEventWithCancelledToken(bool syncContinuations)
 	{
 		// Arrange
 		using var are = new AsyncAutoResetEvent(false, syncContinuations);
@@ -21,7 +20,7 @@ public class AcquisitionTests
 
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
-	public async Task WaitAsync_ThrowsCancelledOperationException_WhenCalledOnSignaledEventWithCancelledToken(bool syncContinuations)
+	public async Task WaitAsync_ThrowsOperationCanceledException_WhenCalledOnSignaledEventWithCancelledToken(bool syncContinuations)
 	{
 		// Arrange
 		using var are = new AsyncAutoResetEvent(true, syncContinuations);
@@ -38,14 +37,18 @@ public class AcquisitionTests
 		// Arrange
 		using var are = new AsyncAutoResetEvent(false, syncContinuations);
 		using var cts = new CancellationTokenSource(10);
+		var tcs = new TaskCompletionSource();
 
 		// Act
-		var waitTask = are.WaitAsync(cts.Token).AsTask();
+		var waitTask = are
+			.WaitAsync(cts.Token)
+			.AsTask();
+		_ = waitTask.ContinueWith(_ => tcs.SetResult(), TaskContinuationOptions.OnlyOnCanceled);
 
 		// Assert
 		waitTask.IsCompleted.ShouldBeFalse();
 		waitTask.IsCanceled.ShouldBeFalse();
-		await Task.Delay(75, CancellationToken.None);
+		await tcs.Task;
 		waitTask.IsCompleted.ShouldBeTrue();
 		waitTask.IsCanceled.ShouldBeTrue();
 
@@ -66,7 +69,7 @@ public class AcquisitionTests
 		});
 
 		// Act
-		await Task.Delay(50);
+		await Task.Delay(30);
 		wasSignaled.ShouldBeFalse();
 		are.Set();
 		await task;
@@ -77,7 +80,7 @@ public class AcquisitionTests
 
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
-	public async Task WaitAsync_ThrowOperationCanceledException_WhenStateIsUnsignaledAndTimeoutOccurs(bool syncContinuations)
+	public async Task WaitAsync_ThrowsOperationCanceledException_WhenStateIsUnsignaledAndTimeoutOccurs(bool syncContinuations)
 	{
 		// Arrange
 		using var are = new AsyncAutoResetEvent(false, syncContinuations);

@@ -1,5 +1,4 @@
 ﻿using NExtensions.Async;
-using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncManualResetEventTests;
 
@@ -7,7 +6,7 @@ public class GeneralTests
 {
 	[Theory]
 	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
-	public void Constructor_SetInitialStateToSignaled_WhenTrueIsPassed(bool syncContinuations)
+	public void Constructor_SetsInitialStateToSignaled_WhenTrueIsPassed(bool syncContinuations)
 	{
 		// Arrange & Act
 		using var mre = new AsyncManualResetEvent(true, syncContinuations);
@@ -19,7 +18,7 @@ public class GeneralTests
 
 	[Theory]
 	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
-	public async Task Constructor_SetInitialStateToSignaled_WhenFalseIsPassed(bool syncContinuations)
+	public async Task Constructor_SetsInitialStateToUnsignaled_WhenFalseIsPassed(bool syncContinuations)
 	{
 		// Arrange & Act
 		using var mre = new AsyncManualResetEvent(false, syncContinuations);
@@ -56,7 +55,7 @@ public class GeneralTests
 
 	[Theory]
 	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
-	public async Task Reset_ChangeStateToUnsignaled_WhenStateWasSignaled(bool syncContinuations)
+	public async Task Reset_ChangesStateToUnsignaled_WhenStateWasSignaled(bool syncContinuations)
 	{
 		// Arrange
 		using var mre = new AsyncManualResetEvent(true, syncContinuations);

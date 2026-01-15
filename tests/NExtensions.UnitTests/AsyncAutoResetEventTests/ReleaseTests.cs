@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using NExtensions.Async;
 using NExtensions.UnitTests.Utilities;
-using Shouldly;
 
 // ReSharper disable AccessToModifiedClosure
 // ReSharper disable AccessToDisposedClosure
@@ -55,7 +54,8 @@ public class ReleaseTests
 			Interlocked.Increment(ref releasedCount);
 		});
 
-		await Task.Delay(100);
+		await Task.WhenAny(t1, t2);
+		await Task.Delay(30);
 		releasedCount.ShouldBe(1);
 
 		if (t1.IsCompleted)
@@ -150,8 +150,8 @@ public class ReleaseTests
 		});
 
 		await Task.WhenAll(setTask, waitTask);
-        acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
-    }
+		acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
+	}
 
 	[Theory]
 	[InlineData(1)]
@@ -197,8 +197,8 @@ public class ReleaseTests
 		});
 
 		await Task.WhenAll(setTask, waitTask);
-        acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
-    }
+		acquiredCount.ShouldBeLessThanOrEqualTo(setCount);
+	}
 
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
@@ -234,7 +234,7 @@ public class ReleaseTests
 		releasedCount.ShouldBe(3);
 	}
 
-	[Theory]
+	[Theory(Skip = "You can't assert for 'mostly'")]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
 	public async Task Set_ShouldReleasePendingThreads_MostlyInFifoOrder(bool syncContinuations)
 	{
@@ -312,10 +312,11 @@ public class ReleaseTests
 			await are.WaitAsync();
 			Interlocked.Increment(ref releaseCount);
 		});
-		await Task.Delay(50);
+		await Task.Delay(30);
 
 		// Act
 		are.Set();
+		await Task.WhenAny(t1, t2);
 		await Task.Delay(50);
 
 		// Assert
@@ -357,20 +358,19 @@ public class ReleaseTests
 		// Assert
 		are.WaitAsync().AsTask().IsCompletedSuccessfully.ShouldBeTrue();
 	}
-	
+
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
 	public void Set_BeIdempotentRegardingSignal_WhenCalledInParallel(bool syncContinuations)
 	{
 		// Arrange
-		const int parallelism = 10;
+		const int to = 10;
 		const int hits = 1000;
 		using var are = new AsyncAutoResetEvent(false, syncContinuations);
 
 		// Act & Assert
 		var waits = 0;
-		var options = new ParallelOptions { MaxDegreeOfParallelism = parallelism };
-		var waitAll = ParallelUtility.ForAsync(0, parallelism, options, async (_, _) =>
+		var waitAll = ParallelUtility.ForAsync(0, to, async (_, _) =>
 		{
 			while (true)
 			{
@@ -380,7 +380,7 @@ public class ReleaseTests
 			}
 		});
 
-		Parallel.For(0, parallelism, options, _ =>
+		Parallel.For(0, to, _ =>
 		{
 			while (!waitAll.IsCompletedSuccessfully)
 			{
@@ -390,7 +390,7 @@ public class ReleaseTests
 		});
 		waits.ShouldBeGreaterThanOrEqualTo(hits);
 	}
-	
+
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
 	public async Task Set_ReleaseAllWaitingTasks_WhenCalledInParallel(bool syncContinuations)

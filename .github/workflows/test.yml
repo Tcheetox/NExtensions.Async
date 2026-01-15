@@ -1,47 +1,63 @@
 name: Run tests
 
 on:
-    push:
-        branches: ['*']
-    pull_request:
-        branches: ['main']
-    workflow_dispatch:
+  push:
+    branches: [ '*' ]
+  pull_request:
+    branches: [ 'main' ]
+  workflow_dispatch:
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: [ '6.0', '7.0', '8.0', '9.0' ]
+    
+    name: Test on .NET ${{ matrix.dotnet }}
+    
+    steps:
+      - uses: actions/checkout@v4
 
-        steps:
-            - uses: actions/checkout@v4
-            - name: Setup .NET SDKs
-              uses: actions/setup-dotnet@v4
-              with:
-                  dotnet-version: |
-                      6.0.x
-                      7.0.x
-                      8.0.x
-                      9.0.x
-            - name: Setup report generator
-              run: dotnet tool install --global dotnet-reportgenerator-globaltool
-            - name: Restore dependencies
-              run: dotnet restore
-            - name: Build
-              run: dotnet build --no-restore
-            - name: Run tests
-              run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage"
-            - name: Generate coverage report
-              run: |
-                  reportgenerator \
-                    -reports:"**/coverage.cobertura.xml" \
-                    -targetdir:"./CoverageReport" \
-                    -reporttypes:Html
-            - name: Upload coverage report
-              uses: actions/upload-artifact@v4
-              with:
-                  name: coverage-report
-                  path: ./CoverageReport
-            - name: Publish coverage report to Codecov
-              uses: codecov/codecov-action@v5
-              with:
-                  token: ${{ secrets.CODECOV_TOKEN }}
-                  slug: Tcheetox/NExtensions.Async
+      - name: Setup .NET SDKs
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+
+      - name: Setup report generator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Run tests
+        run: dotnet test --no-build --verbosity normal --framework net${{ matrix.dotnet }} --collect:"XPlat Code Coverage"
+
+      - name: Generate coverage report
+        run: |
+          reportgenerator \
+            -reports:"**/coverage.cobertura.xml" \
+            -targetdir:"./CoverageReport" \
+            -reporttypes:Html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.dotnet }}
+          path: ./CoverageReport
+
+      - name: Publish coverage report to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: Tcheetox/NExtensions.Async
+          flags: dotnet-${{ matrix.dotnet }}

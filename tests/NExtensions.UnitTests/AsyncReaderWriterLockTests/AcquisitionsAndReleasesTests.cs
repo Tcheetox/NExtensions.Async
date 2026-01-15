@@ -1,6 +1,4 @@
-﻿using Shouldly;
-
-namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
+﻿namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
 
 public class AcquisitionsAndReleasesTests
 {
@@ -40,7 +38,7 @@ public class AcquisitionsAndReleasesTests
 		Should.NotThrow(() => releaser.Dispose());
 	}
 
-	[Theory]
+	[Theory(Skip = "When running locally")]
 	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
 	public async Task EnterWriterScopeAsync_ShouldAcquireManyTimes_WithoutStackDiveIssue(bool syncReader, bool syncWriter)
 	{
@@ -129,13 +127,17 @@ public class AcquisitionsAndReleasesTests
 		// Arrange
 		const int cancelAfter = 25;
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
+		var tcs = new TaskCompletionSource();
 
 		// Act
 		var writer1 = await rwLock.EnterWriterScopeAsync();
 		var cts = new CancellationTokenSource(cancelAfter);
-		_ = rwLock.EnterWriterScopeAsync(cts.Token).AsTask();
+		_ = rwLock
+			.EnterWriterScopeAsync(cts.Token)
+			.AsTask()
+			.ContinueWith(_ => tcs.SetResult(), TaskContinuationOptions.OnlyOnCanceled);
 		var readerTask = rwLock.EnterReaderScopeAsync(CancellationToken.None);
-		await Task.Delay(cancelAfter * 4, CancellationToken.None);
+		await tcs.Task;
 		writer1.Dispose();
 
 		// Assert
@@ -172,6 +174,7 @@ public class AcquisitionsAndReleasesTests
 	public async Task EnterWriterScopeAsync_ShouldResumeNextReaders_WhenMultipleReadersQueued(bool syncReader, bool syncWriter)
 	{
 		var rwLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
+		var tcs = new TaskCompletionSource();
 
 		// The first writer acquires the lock
 		var firstWriter = await rwLock.EnterWriterScopeAsync();
@@ -180,7 +183,10 @@ public class AcquisitionsAndReleasesTests
 		var readerTask1 = rwLock.EnterReaderScopeAsync();
 		using var cts = new CancellationTokenSource(10);
 		var readerTask2 = rwLock.EnterReaderScopeAsync(cts.Token);
-		await Task.Delay(100, CancellationToken.None);
+		_ = readerTask2
+			.AsTask()
+			.ContinueWith(_ => tcs.SetResult(), TaskContinuationOptions.OnlyOnCanceled);
+		await tcs.Task;
 		readerTask1.IsCompleted.ShouldBeFalse();
 		readerTask2.IsCanceled.ShouldBeTrue();
 

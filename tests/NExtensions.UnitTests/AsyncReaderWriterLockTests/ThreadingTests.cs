@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using NExtensions.UnitTests.Utilities;
-using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
 
@@ -71,7 +70,7 @@ public class ThreadingTests
 	[MemberData(nameof(AsyncReaderWriterLockFactory.ReaderWriterOptions), MemberType = typeof(AsyncReaderWriterLockFactory))]
 	public async Task AsyncReaderWriterLock_AllowsSingleWriterAndMultipleReadersConcurrently_WithRandomCancellation(bool syncReader, bool syncWriter)
 	{
-		const int expectedHits = 500;
+		const int expectedHits = 1000;
 		var asyncLock = AsyncReaderWriterLockFactory.Create(syncReader, syncWriter);
 
 		var concurrentWriteCount = 0;
@@ -92,14 +91,14 @@ public class ThreadingTests
 		{
 			try
 			{
-				await Task.Delay(1, CancellationToken.None);
+				await Task.Yield();
 				using var cts = new CancellationTokenSource(Random.Shared.Next(0, 5));
 				using (await asyncLock.EnterWriterScopeAsync(cts.Token))
 				{
 					Interlocked.Increment(ref totalWriteHits);
 					var localCount = Interlocked.Increment(ref concurrentWriteCount);
 					InterlockedUtility.Max(ref maxConcurrentWrite, localCount);
-					await Task.Delay(1, CancellationToken.None);
+					await Task.Yield();
 					Interlocked.Decrement(ref concurrentWriteCount);
 				}
 			}
@@ -117,14 +116,14 @@ public class ThreadingTests
 		{
 			try
 			{
-				await Task.Delay(1, CancellationToken.None);
+				await Task.Yield();
 				using var cts = new CancellationTokenSource(Random.Shared.Next(0, 5));
 				using (await asyncLock.EnterReaderScopeAsync(cts.Token))
 				{
 					Interlocked.Increment(ref totalReadHits);
 					var localCount = Interlocked.Increment(ref concurrentReadCount);
 					InterlockedUtility.Max(ref maxConcurrentRead, localCount);
-					await Task.Delay(1, CancellationToken.None);
+					await Task.Yield();
 					Interlocked.Decrement(ref concurrentReadCount);
 				}
 			}

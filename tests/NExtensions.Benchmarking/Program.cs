@@ -5,6 +5,8 @@ using NExtensions.Benchmarking.AutoResetEventAsync;
 using NExtensions.Benchmarking.ManualResetEventAsync;
 using Perfolizer.Horology;
 
+#pragma warning disable CS0162 // Unreachable code detected
+
 namespace NExtensions.Benchmarking;
 
 internal class Program

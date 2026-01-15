@@ -1,6 +1,4 @@
-﻿using Shouldly;
-
-namespace NExtensions.UnitTests.AsyncLockTests;
+﻿namespace NExtensions.UnitTests.AsyncLockTests;
 
 public class OrderingAndAcquisitionsTests
 {
@@ -12,7 +10,7 @@ public class OrderingAndAcquisitionsTests
 
 		using (await sync.EnterScopeAsync())
 		{
-			await Task.Delay(1);
+			await ValueTask.CompletedTask;
 		}
 
 		var acquiredSync = sync.EnterScopeAsync();
@@ -51,7 +49,7 @@ public class OrderingAndAcquisitionsTests
 		{
 			using var scope = await asyncLock.EnterScopeAsync();
 			accessLog.Add(id);
-			await Task.Delay(10);
+			await Task.Delay(5);
 		}
 	}
 
@@ -82,7 +80,7 @@ public class OrderingAndAcquisitionsTests
 			using var scope = await asyncLock.EnterScopeAsync();
 			concurrentAccesses++;
 			maxConcurrentAccesses = Math.Max(maxConcurrentAccesses, concurrentAccesses);
-			await Task.Delay(10);
+			await Task.Delay(5);
 			concurrentAccesses--;
 		}
 	}
@@ -104,7 +102,7 @@ public class OrderingAndAcquisitionsTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
-	public async Task EnterScopeAsync_WhenCancelledBeforeEntry_ThrowsTaskCanceledException(bool syncContinuation)
+	public async Task EnterScopeAsync_WhenCancelledBeforeEntry_ThrowsOperationCanceledException(bool syncContinuation)
 	{
 		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var token = new CancellationToken(true);
@@ -114,7 +112,7 @@ public class OrderingAndAcquisitionsTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
-	public async Task EnterScopeAsync_WhenCancelledWhileWaiting_ThrowsTaskCanceledException(bool syncContinuation)
+	public async Task EnterScopeAsync_WhenCancelledWhileWaiting_ThrowsOperationCanceledException(bool syncContinuation)
 	{
 		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 
@@ -123,7 +121,7 @@ public class OrderingAndAcquisitionsTests
 		var waitingTask = asyncLock.EnterScopeAsync(cts.Token);
 
 		cts.Cancel();
-		await Should.ThrowAsync<TaskCanceledException>(async () => await waitingTask);
+		await Should.ThrowAsync<OperationCanceledException>(async () => await waitingTask);
 		scope.Dispose();
 	}
 
@@ -142,7 +140,7 @@ public class OrderingAndAcquisitionsTests
 		firstScope.Dispose();
 
 		nextWaiter.IsCompletedSuccessfully.ShouldBeTrue();
-		await Should.ThrowAsync<TaskCanceledException>(async () => await cancelledWaiter);
+		await Should.ThrowAsync<OperationCanceledException>(async () => await cancelledWaiter);
 	}
 
 	[Theory]

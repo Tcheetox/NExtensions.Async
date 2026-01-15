@@ -1,5 +1,4 @@
 ﻿using NExtensions.Async;
-using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncAutoResetEventTests;
 
@@ -7,7 +6,7 @@ public class GeneralTests
 {
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
-	public void Constructor_SetInitialStateToSignaled_WhenTrueIsPassed(bool syncContinuations)
+	public void Constructor_SetsInitialStateToSignaled_WhenTrueIsPassed(bool syncContinuations)
 	{
 		// Arrange & Act
 		using var are = new AsyncAutoResetEvent(true, syncContinuations);
@@ -19,14 +18,14 @@ public class GeneralTests
 
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
-	public async Task Constructor_SetInitialStateToSignaled_WhenFalseIsPassed(bool syncContinuations)
+	public async Task Constructor_SetsInitialStateToUnsignaled_WhenFalseIsPassed(bool syncContinuations)
 	{
 		// Arrange & Act
 		using var are = new AsyncAutoResetEvent(false, syncContinuations);
 
 		// Assert
 		var task = are.WaitAsync(CancellationToken.None);
-		await Task.Delay(50);
+		await Task.Delay(30);
 		task.IsCompletedSuccessfully.ShouldBeFalse();
 	}
 
@@ -56,7 +55,7 @@ public class GeneralTests
 
 	[Theory]
 	[MemberData(nameof(AsyncAutoResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncAutoResetEventFactory))]
-	public async Task Reset_ChangeStateToUnsignaled_WhenStateWasSignaled(bool syncContinuations)
+	public async Task Reset_ChangesStateToUnsignaled_WhenStateWasSignaled(bool syncContinuations)
 	{
 		// Arrange
 		using var are = new AsyncAutoResetEvent(true, syncContinuations);
