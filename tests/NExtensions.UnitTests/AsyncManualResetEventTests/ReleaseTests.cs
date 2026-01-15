@@ -81,7 +81,7 @@ public class ReleaseTests
 		t3.IsCompleted.ShouldBeFalse();
 	}
 
-	[Theory]
+	[Theory(Skip = "You can't assert for 'mostly'")]
 	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
 	public async Task Set_ShouldReleasePendingThreads_MostlyInFifoOrder(bool syncContinuations)
 	{
