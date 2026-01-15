@@ -1,5 +1,4 @@
 ﻿using NExtensions.Async;
-using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncAutoResetEventTests;
 

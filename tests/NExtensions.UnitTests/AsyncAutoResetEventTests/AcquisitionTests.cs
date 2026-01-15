@@ -1,5 +1,4 @@
 ﻿using NExtensions.Async;
-using Shouldly;
 
 // ReSharper disable AccessToDisposedClosure
 

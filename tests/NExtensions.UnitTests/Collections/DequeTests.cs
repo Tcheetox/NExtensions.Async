@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using NExtensions.Async.Collections;
-using Shouldly;
 
 namespace NExtensions.UnitTests.Collections;
 

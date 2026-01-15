@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using NExtensions.Async;
 using NExtensions.UnitTests.Utilities;
-using Shouldly;
 
 // ReSharper disable AccessToModifiedClosure
 // ReSharper disable AccessToDisposedClosure

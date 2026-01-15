@@ -1,6 +1,4 @@
-﻿using Shouldly;
-
-namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
+﻿namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
 
 public class OrderingTests
 {

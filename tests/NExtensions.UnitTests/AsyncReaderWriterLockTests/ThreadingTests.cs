@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using NExtensions.UnitTests.Utilities;
-using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncReaderWriterLockTests;
 

@@ -1,5 +1,4 @@
 ﻿using NExtensions.UnitTests.Utilities;
-using Shouldly;
 
 namespace NExtensions.UnitTests.AsyncLockTests;
 

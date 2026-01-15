@@ -2,7 +2,6 @@
 using NExtensions.Async;
 using NExtensions.UnitTests.AsyncLazyTests.Shared;
 using NExtensions.UnitTests.Utilities;
-using Shouldly;
 
 // ReSharper disable RedundantArgumentDefaultValue
 
