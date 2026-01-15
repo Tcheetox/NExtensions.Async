@@ -11,7 +11,7 @@ public class NoneTests : NonParallelTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
-	public async Task GetNoneAsync_CreatesOnce_OnSuccess(bool withCancellation)
+	public async Task GetNone_CreatesOnce_OnSuccess(bool withCancellation)
 	{
 		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => VoidResult.GetAsync(5, token), withCancellation, Mode);
 
@@ -26,7 +26,7 @@ public class NoneTests : NonParallelTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
-	public async Task GetNoneAsync_CreatesOnce_OnError(bool withCancellation)
+	public async Task GetNone_CreatesOnce_OnError(bool withCancellation)
 	{
 		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(token => CtorException.ThrowsAsync(5, token), withCancellation, Mode);
 
@@ -41,7 +41,7 @@ public class NoneTests : NonParallelTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLazyFactory.WithOrWithoutCancellation), MemberType = typeof(AsyncLazyFactory))]
-	public async Task GetNoneAsync_CreatesOnce_OnFactoryError(bool withCancellation)
+	public async Task GetNone_CreatesOnce_OnFactoryError(bool withCancellation)
 	{
 		var asyncLazy = AsyncLazyFactory.Create<VoidResult>(_ => CtorException.ThrowsDirectly(), withCancellation, Mode);
 

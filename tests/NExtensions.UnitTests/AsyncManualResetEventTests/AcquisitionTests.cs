@@ -9,7 +9,7 @@ public class AcquisitionTests
 {
 	[Theory]
 	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
-	public async Task WaitAsync_ThrowsCancelledOperationException_WhenCalledOnUnsignaledEventWithCancelledToken(bool syncContinuations)
+	public async Task WaitAsync_ThrowsOperationCanceledException_WhenCalledOnUnsignaledEventWithCancelledToken(bool syncContinuations)
 	{
 		// Arrange
 		using var mre = new AsyncManualResetEvent(false, syncContinuations);
@@ -21,7 +21,7 @@ public class AcquisitionTests
 
 	[Theory]
 	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
-	public async Task WaitAsync_ThrowsCancelledOperationException_WhenCalledOnSignaledEventWithCancelledToken(bool syncContinuations)
+	public async Task WaitAsync_ThrowsOperationCanceledException_WhenCalledOnSignaledEventWithCancelledToken(bool syncContinuations)
 	{
 		// Arrange
 		using var mre = new AsyncManualResetEvent(true, syncContinuations);
@@ -81,7 +81,7 @@ public class AcquisitionTests
 
 	[Theory]
 	[MemberData(nameof(AsyncManualResetEventFactory.ContinuationOptions), MemberType = typeof(AsyncManualResetEventFactory))]
-	public async Task WaitAsync_ThrowOperationCanceledException_WhenStateIsUnsignaledAndTimeoutOccurs(bool syncContinuations)
+	public async Task WaitAsync_ThrowsOperationCanceledException_WhenStateIsUnsignaledAndTimeoutOccurs(bool syncContinuations)
 	{
 		// Arrange
 		using var mre = new AsyncManualResetEvent(false, syncContinuations);

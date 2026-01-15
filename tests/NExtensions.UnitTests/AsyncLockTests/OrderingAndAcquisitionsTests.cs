@@ -104,7 +104,7 @@ public class OrderingAndAcquisitionsTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
-	public async Task EnterScopeAsync_WhenCancelledBeforeEntry_ThrowsTaskCanceledException(bool syncContinuation)
+	public async Task EnterScopeAsync_WhenCancelledBeforeEntry_ThrowsOperationCanceledException(bool syncContinuation)
 	{
 		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 		var token = new CancellationToken(true);
@@ -114,7 +114,7 @@ public class OrderingAndAcquisitionsTests
 
 	[Theory]
 	[MemberData(nameof(AsyncLockFactory.ContinuationOptions), MemberType = typeof(AsyncLockFactory))]
-	public async Task EnterScopeAsync_WhenCancelledWhileWaiting_ThrowsTaskCanceledException(bool syncContinuation)
+	public async Task EnterScopeAsync_WhenCancelledWhileWaiting_ThrowsOperationCanceledException(bool syncContinuation)
 	{
 		var asyncLock = AsyncLockFactory.Create(syncContinuation);
 
@@ -123,7 +123,7 @@ public class OrderingAndAcquisitionsTests
 		var waitingTask = asyncLock.EnterScopeAsync(cts.Token);
 
 		cts.Cancel();
-		await Should.ThrowAsync<TaskCanceledException>(async () => await waitingTask);
+		await Should.ThrowAsync<OperationCanceledException>(async () => await waitingTask);
 		scope.Dispose();
 	}
 
@@ -142,7 +142,7 @@ public class OrderingAndAcquisitionsTests
 		firstScope.Dispose();
 
 		nextWaiter.IsCompletedSuccessfully.ShouldBeTrue();
-		await Should.ThrowAsync<TaskCanceledException>(async () => await cancelledWaiter);
+		await Should.ThrowAsync<OperationCanceledException>(async () => await cancelledWaiter);
 	}
 
 	[Theory]
