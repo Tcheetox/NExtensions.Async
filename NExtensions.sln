@@ -17,6 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{D0D095D2-9
 		.github\workflows\private-publish.yml = .github\workflows\private-publish.yml
 		.github\workflows\public-publish.yml = .github\workflows\public-publish.yml
 		.github\workflows\test.yml = .github\workflows\test.yml
+		LICENSE = LICENSE
 	EndProjectSection
 EndProject
 Global

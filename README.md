@@ -1,8 +1,10 @@
 # NExtensions.Async
 
 [![NuGet Version](https://img.shields.io/nuget/v/NExtensions.Async)](https://www.nuget.org/packages/NExtensions.Async/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://licenses.nuget.org/MIT)
+[![Tests](https://github.com/Tcheetox/NExtensions.Async/actions/workflows/test.yml/badge.svg)](https://github.com/Tcheetox/NExtensions.Async/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/Tcheetox/NExtensions.Async/graph/badge.svg?token=HTJAJIKELY)](https://codecov.io/gh/Tcheetox/NExtensions.Async)
 [![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%207.0%20%7C%208.0%20%7C%209.0%20%7C%2010.0-blue)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Tcheetox/NExtensions.Async?tab=MIT-1-ov-file#readme)
 
 High-performance async synchronization primitives for modern .NET applications. This library provides efficient, allocation-friendly implementations of essential async coordination
 types: `AsyncReaderWriterLock`, `AsyncLock`, `AsyncLazy`, `AsyncAutoResetEvent`, and `AsyncManualResetEvent`.
@@ -272,6 +274,6 @@ BenchmarkDotNet v0.15.1, Windows 11 (10.0.26100.4770/24H2/2024Update/HudsonValle
 | AsyncExManualResetEvent | 10      | 100000     |     10.1570 ms |     0.2022 ms |     0.2483 ms |              20.0000 |          97.0000 |     3144 B |
 | AsyncManualResetEvent   | 10      | 100000     |      2.0304 ms |     0.0525 ms |     0.1514 ms |              20.0000 |                - |     4096 B |
 
-## 📄 License
+## 📜 License
 
-This project is licensed under the [MIT](https://licenses.nuget.org/MIT) License.
+This project is licensed under the [MIT](https://github.com/Tcheetox/NExtensions.Async?tab=MIT-1-ov-file#readme) License.
