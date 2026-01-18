@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path=".github/workflows/.idea/.gitignore" />
+    <File Path=".github/workflows/CODEOWNERS" />
+    <File Path=".github/workflows/private-publish.yml" />
+    <File Path=".github/workflows/public-publish.yml" />
+    <File Path=".github/workflows/test.yml" />
+    <File Path="LICENSE" />
+  </Folder>
+  <Folder Name="/lib/">
+    <Project Path="src/NExtensions.Async/NExtensions.Async.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NExtensions.Benchmarking/NExtensions.Benchmarking.csproj" />
+    <Project Path="tests/NExtensions.UnitTests/NExtensions.UnitTests.csproj" />
+  </Folder>
+</Solution>
