@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
+  test:
     runs-on: ubuntu-latest
     
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: [ '6.0', '7.0', '8.0', '9.0', '10.0' ]
+        
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,16 +25,43 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
+            
       - name: Restore dependencies
         run: dotnet restore
+        
       - name: Build
         run: dotnet build --configuration Release --no-restore
+        
       - name: Run tests
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: dotnet test --configuration Release --no-build --verbosity normal --framework net${{ matrix.dotnet }}
+
+  pack-and-publish:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            6.0.x
+            7.0.x
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
       - name: Pack
         run: dotnet pack src/NExtensions.Async/NExtensions.Async.csproj --configuration Release --no-build
 
-      - name: Publish to public https://api.nuget.org
+      - name: Publish to NuGet
         run: |
           dotnet nuget push "src/NExtensions.Async/bin/Release/*.nupkg" \
             --source https://api.nuget.org/v3/index.json \
