@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using Nito.AsyncEx;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable FieldCanBeMadeReadOnly.Global
@@ -13,6 +14,11 @@ namespace NExtensions.Benchmarking.ReadAndWriteLockAsync;
 [ThreadingDiagnoser]
 public class RwLockBenchmarkDemo : RwLockBenchmark
 {
+	private AsyncReaderWriterLock _asyncExLock = null!;
+	private Async.AsyncReaderWriterLock _asyncLock = null!;
+	private ParallelOptions _readOptions = null!;
+	private ParallelOptions _writeOptions = null!;
+
 	[Params("1/10", "5/10", "10/10", "10/5", "10/1")]
 	public string RW = "1/5";
 
@@ -22,8 +28,18 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 	[Params("yield")]
 	public override string Wait { get; set; } = "yield";
 
-	[Params(ContinuationMode.AsyncReadWrite)]
+	//[Params(ContinuationMode.AsyncReadWrite)]
 	public override ContinuationMode Continuation { get; set; } = ContinuationMode.AsyncReadWrite;
+
+	[GlobalSetup]
+	public void Setup()
+	{
+		_asyncExLock = GetAsyncReaderWriterLockEx();
+		_asyncLock = GetAsyncReaderWriterLock();
+		var (readers, writers) = GetWorkersCount();
+		_readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
+		_writeOptions = new ParallelOptions { MaxDegreeOfParallelism = writers };
+	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private (int Readers, int Writers) GetWorkersCount()
@@ -38,11 +54,9 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 		if (Continuation != ContinuationMode.AsyncReadWrite)
 			throw new InvalidBenchmarkException("Noop.");
 
-		var locker = GetAsyncReaderWriterLockEx();
+		var locker = _asyncExLock;
 		var enqueued = 0;
-		var (readers, writers) = GetWorkersCount();
-		var writeOptions = new ParallelOptions { MaxDegreeOfParallelism = writers };
-		var enqueue = Parallel.ForAsync(0, writers, writeOptions, async (_, ct) =>
+		var enqueue = Parallel.ForAsync(0, _writeOptions.MaxDegreeOfParallelism, _writeOptions, async (_, ct) =>
 		{
 			while (true)
 			{
@@ -57,8 +71,7 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 		});
 
 		var read = 0;
-		var readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
-		var reading = Parallel.ForAsync(0, readers, readOptions, async (_, ct) =>
+		var reading = Parallel.ForAsync(0, _readOptions.MaxDegreeOfParallelism, _readOptions, async (_, ct) =>
 		{
 			while (true)
 			{
@@ -78,11 +91,9 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 	[Benchmark]
 	public async Task AsyncReaderWriterLock()
 	{
-		var locker = GetAsyncReaderWriterLock();
+		var locker = _asyncLock;
 		var enqueued = 0;
-		var (readers, writers) = GetWorkersCount();
-		var writeOptions = new ParallelOptions { MaxDegreeOfParallelism = writers };
-		var enqueue = Parallel.ForAsync(0, writers, writeOptions, async (_, ct) =>
+		var enqueue = Parallel.ForAsync(0, _writeOptions.MaxDegreeOfParallelism, _writeOptions, async (_, ct) =>
 		{
 			while (true)
 			{
@@ -97,8 +108,7 @@ public class RwLockBenchmarkDemo : RwLockBenchmark
 		});
 
 		var read = 0;
-		var readOptions = new ParallelOptions { MaxDegreeOfParallelism = readers };
-		var reading = Parallel.ForAsync(0, readers, readOptions, async (_, ct) =>
+		var reading = Parallel.ForAsync(0, _readOptions.MaxDegreeOfParallelism, _readOptions, async (_, ct) =>
 		{
 			while (true)
 			{

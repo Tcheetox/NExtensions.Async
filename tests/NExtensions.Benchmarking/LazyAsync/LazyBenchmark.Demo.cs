@@ -12,11 +12,19 @@ namespace NExtensions.Benchmarking.LazyAsync;
 [ThreadingDiagnoser]
 public class LazyBenchmarkDemo
 {
+	private ParallelOptions _options = null!;
+
 	[Params(1, 10, 200)]
 	public int Parallelism { get; set; } = 1;
 
 	//[Params(0, 1)]
 	public int Wait { get; set; } = 0;
+
+	[GlobalSetup]
+	public void Setup()
+	{
+		_options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
+	}
 
 	private static async Task<int> GetAfterAsync(int after, CancellationToken token = default)
 	{
@@ -36,8 +44,7 @@ public class LazyBenchmarkDemo
 			return;
 		}
 
-		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, _) => { _ = await lazy.Value; });
+		await Parallel.ForAsync(0, Parallelism, _options, async (_, _) => { _ = await lazy.Value; });
 	}
 
 	[Benchmark]
@@ -50,8 +57,7 @@ public class LazyBenchmarkDemo
 			return;
 		}
 
-		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, _) => { _ = await lazy; });
+		await Parallel.ForAsync(0, Parallelism, _options, async (_, _) => { _ = await lazy; });
 	}
 
 	[Benchmark]
@@ -64,7 +70,6 @@ public class LazyBenchmarkDemo
 			return;
 		}
 
-		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, _) => { _ = await lazy; });
+		await Parallel.ForAsync(0, Parallelism, _options, async (_, _) => { _ = await lazy; });
 	}
 }
