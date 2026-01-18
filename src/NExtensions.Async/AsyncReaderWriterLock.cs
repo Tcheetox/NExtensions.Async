@@ -186,7 +186,7 @@ public sealed class AsyncReaderWriterLock
 
 		Debug.Assert(writerToWake == null || readersToWake == null, "Cannot wake both writer and readers simultaneously.");
 
-		// Do not call SetResult in the lock to reduce contention, and protect it from synchronous continuations.
+		// Do not call SetResult in the lock to reduce contention and protect it from synchronous continuations.
 		if (writerToWake is not null)
 		{
 			writerToWake.TrySetResult(ReleaseMode.Writer);

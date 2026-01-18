@@ -90,9 +90,9 @@ public sealed class AsyncLock
 			if (cancelledWaiter is not null && _waiterQueue.Remove(cancelledWaiter))
 				return;
 			_active = _waiterQueue.TryRemoveFirst(out waiterToWake);
+			Debug.Assert(waiterToWake is not null == _active, "Invalid state: _active must match waiter presence.");
 		}
 
-		Debug.Assert(waiterToWake is not null == _active, "Invalid state: _active must match waiter presence.");
 		waiterToWake?.TrySetResult();
 	}
 

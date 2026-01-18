@@ -57,7 +57,7 @@ public class ThreadingTests
 					Interlocked.Decrement(ref concurrentCount);
 				}
 			}
-			catch
+			catch (OperationCanceledException)
 			{
 				// Yep.
 				Interlocked.Increment(ref failedHits);
