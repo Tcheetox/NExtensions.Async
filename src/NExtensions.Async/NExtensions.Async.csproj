@@ -1,21 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
+        <TargetFrameworks>net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <PropertyGroup>
         <PackageId>NExtensions.Async</PackageId>
-        <Version>1.2.0</Version>
+        <Version>1.3.0</Version>
         <Authors>Kévin Renier</Authors>
         <Description>High-performance async synchronization primitives including AsyncReaderWriterLock, AsyncLazy, AsyncLock, AsyncAutoResetEvent, and AsyncManualResetEvent for modern .NET applications.</Description>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <IncludeSymbols>true</IncludeSymbols>
         <PackageTags>async;concurrency;threading;lock;synchronization;dotnet;csharp;asynclock;readerwriter;lazy;event;autoreset;manualreset;asyncevent</PackageTags>
         <PackageReleaseNotes>
-            Added AsyncAutoResetEvent and AsyncManualResetEvent synchronization primitives.
+            Added explicit support for .NET10.
         </PackageReleaseNotes>
         <PackageProjectUrl>https://github.com/Tcheetox/NExtensions.Async</PackageProjectUrl>
         <RepositoryUrl>https://github.com/Tcheetox/NExtensions.Async</RepositoryUrl>

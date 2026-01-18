@@ -2,7 +2,7 @@
 
 [![NuGet Version](https://img.shields.io/nuget/v/NExtensions.Async)](https://www.nuget.org/packages/NExtensions.Async/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://licenses.nuget.org/MIT)
-[![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%207.0%20%7C%208.0%20%7C%209.0-blue)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-6.0%20%7C%207.0%20%7C%208.0%20%7C%209.0%20%7C%2010.0-blue)](https://dotnet.microsoft.com/)
 
 High-performance async synchronization primitives for modern .NET applications. This library provides efficient, allocation-friendly implementations of essential async coordination
 types: `AsyncReaderWriterLock`, `AsyncLock`, `AsyncLazy`, `AsyncAutoResetEvent`, and `AsyncManualResetEvent`.
@@ -17,7 +17,7 @@ Inspired from the awesome [library](https://www.nuget.org/packages/Nito.AsyncEx)
 - **🚩 AsyncManualResetEvent**: Signals all waiting tasks and remains signaled until manually reset
 - **Cancellation Support**: Thorough `CancellationToken` support across all primitives
 - **Zero dependencies**: No external dependencies
-- **Modern .NET**: Supports .NET 6.0, 7.0, 8.0, and 9.0 with nullable reference types
+- **Modern .NET**: Supports from .NET 6.0 to the latest .NET 10.0 with nullable reference types
 
 ## Installation
 
