@@ -14,6 +14,12 @@ namespace NExtensions.Benchmarking.LockAsync;
 [ThreadingDiagnoser]
 public class LockBenchmarkDemo
 {
+	private AsyncEx.AsyncLock _asyncExLock = null!;
+	private AsyncLock _asyncLock = null!;
+	private ParallelOptions _options = null!;
+
+	private SemaphoreSlim _semaphoreSlim = null!;
+
 	[Params(150_000)]
 	public int Hits { get; set; } = 100_000;
 
@@ -23,11 +29,29 @@ public class LockBenchmarkDemo
 	[Params("yield")]
 	public string Wait { get; set; } = "yield";
 
+	[GlobalSetup]
+	public void Setup()
+	{
+		_semaphoreSlim = new SemaphoreSlim(1, 1);
+		_asyncExLock = new AsyncEx.AsyncLock();
+		_asyncLock = new AsyncLock();
+		_options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
+	}
+
+	[GlobalCleanup]
+	public void Cleanup()
+	{
+		_semaphoreSlim.Dispose();
+		_semaphoreSlim = null!;
+		_asyncExLock = null!;
+		_asyncLock = null!;
+		_options = null!;
+	}
 
 	[Benchmark]
 	public async Task SemaphoreSlim()
 	{
-		var sync = new SemaphoreSlim(1, 1);
+		var sync = _semaphoreSlim;
 
 		if (Parallelism == 1)
 		{
@@ -47,8 +71,7 @@ public class LockBenchmarkDemo
 			return;
 		}
 
-		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, ct) =>
+		await Parallel.ForAsync(0, Parallelism, _options, async (_, ct) =>
 		{
 			for (var i = 0; i < Hits; i++)
 			{
@@ -68,7 +91,7 @@ public class LockBenchmarkDemo
 	[Benchmark]
 	public async Task AsyncExLock()
 	{
-		var sync = new AsyncEx.AsyncLock();
+		var sync = _asyncExLock;
 
 		if (Parallelism == 1)
 		{
@@ -83,8 +106,7 @@ public class LockBenchmarkDemo
 			return;
 		}
 
-		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, ct) =>
+		await Parallel.ForAsync(0, Parallelism, _options, async (_, ct) =>
 		{
 			for (var i = 0; i < Hits; i++)
 			{
@@ -99,7 +121,7 @@ public class LockBenchmarkDemo
 	[Benchmark]
 	public async Task AsyncLock()
 	{
-		var sync = new AsyncLock();
+		var sync = _asyncLock;
 
 		if (Parallelism == 1)
 		{
@@ -114,8 +136,7 @@ public class LockBenchmarkDemo
 			return;
 		}
 
-		var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
-		await Parallel.ForAsync(0, Parallelism, options, async (_, ct) =>
+		await Parallel.ForAsync(0, Parallelism, _options, async (_, ct) =>
 		{
 			for (var i = 0; i < Hits; i++)
 			{

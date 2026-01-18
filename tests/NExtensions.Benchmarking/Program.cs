@@ -2,7 +2,10 @@
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
 using NExtensions.Benchmarking.AutoResetEventAsync;
+using NExtensions.Benchmarking.LazyAsync;
+using NExtensions.Benchmarking.LockAsync;
 using NExtensions.Benchmarking.ManualResetEventAsync;
+using NExtensions.Benchmarking.ReadAndWriteLockAsync;
 using Perfolizer.Horology;
 
 #pragma warning disable CS0162 // Unreachable code detected
@@ -24,11 +27,11 @@ internal class Program
 
 		BenchmarkRunner.Run<ManualResetEventBenchmarkDemo>(config);
 		BenchmarkRunner.Run<AutoResetEventBenchmarkDemo>(config);
+		BenchmarkRunner.Run<RwLockBenchmarkDemo>(config);
+		BenchmarkRunner.Run<LazyBenchmarkDemo>(config);
+		BenchmarkRunner.Run<LockBenchmarkDemo>(config);
 
 		// BenchmarkRunner.Run<DequeBenchmark>(config);
-		// BenchmarkRunner.Run<RwLockBenchmarkDemo>(config);
-		// BenchmarkRunner.Run<LazyBenchmarkDemo>(config);
-		// BenchmarkRunner.Run<LockBenchmarkDemo>(config);
 
 		await Task.CompletedTask;
 	}
